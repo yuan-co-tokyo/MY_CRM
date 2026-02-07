@@ -4,12 +4,14 @@
   "private": true,
   "scripts": {
     "prisma:generate": "prisma generate",
+    "prisma:seed": "prisma db seed",
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio"
   },
   "prisma": {
-    "schema": "prisma/schema.prisma"
+    "schema": "prisma/schema.prisma",
+    "seed": "node prisma/seed.js"
   },
   "dependencies": {
     "@prisma/client": "^5.19.1"
