@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { AuthService } from "./auth.service";
 import { JwtAuthGuard } from "./jwt-auth.guard";
-import { AuthenticatedRequest } from "./auth.types";
+import type { AuthenticatedRequest } from "./auth.types";
 
 const loginSchema = z.object({
   tenantId: z.string().min(1),
