@@ -1,0 +1,208 @@
+// Initial CRM schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum UserType {
+  ADMIN
+  STANDARD
+  PRIVILEGED
+}
+
+enum CustomerStatus {
+  LEAD
+  ACTIVE
+  INACTIVE
+}
+
+enum InteractionType {
+  CALL
+  EMAIL
+  MEETING
+  NOTE
+}
+
+model Tenant {
+  id           String        @id @default(cuid())
+  name         String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  users        User[]
+  groups       Group[]
+  customers    Customer[]
+  interactions Interaction[]
+  roles        Role[]
+}
+
+model User {
+  id                String       @id @default(cuid())
+  tenantId          String
+  email             String
+  passwordHash      String
+  name              String
+  status            UserStatus   @default(ACTIVE)
+  userType          UserType     @default(STANDARD)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  deletedAt         DateTime?
+
+  tenant            Tenant       @relation(fields: [tenantId], references: [id])
+
+  userGroups        UserGroup[]
+  customerAssignees CustomerAssignee[]
+  ownerCustomers    Customer[]   @relation("CustomerOwner")
+  interactions      Interaction[]
+  userRoles         UserRole[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+model Group {
+  id         String      @id @default(cuid())
+  tenantId   String
+  name       String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  deletedAt  DateTime?
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  userGroups UserGroup[]
+  groupRoles GroupRole[]
+
+  @@index([tenantId])
+}
+
+model UserGroup {
+  userId    String
+  groupId   String
+  createdAt DateTime @default(now())
+
+  user      User   @relation(fields: [userId], references: [id])
+  group     Group  @relation(fields: [groupId], references: [id])
+
+  @@id([userId, groupId])
+}
+
+model Customer {
+  id           String         @id @default(cuid())
+  tenantId     String
+  name         String
+  email        String?
+  phone        String?
+  status       CustomerStatus @default(LEAD)
+  ownerUserId  String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
+
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  owner        User?          @relation("CustomerOwner", fields: [ownerUserId], references: [id])
+  assignees    CustomerAssignee[]
+  interactions Interaction[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([ownerUserId])
+}
+
+model CustomerAssignee {
+  customerId String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  customer   Customer @relation(fields: [customerId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@id([customerId, userId])
+}
+
+model Interaction {
+  id         String          @id @default(cuid())
+  tenantId   String
+  customerId String
+  userId     String
+  type       InteractionType
+  note       String
+  occurredAt DateTime
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  deletedAt  DateTime?
+
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  user       User      @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([userId])
+}
+
+model Role {
+  id              String     @id @default(cuid())
+  tenantId        String
+  name            String
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  deletedAt       DateTime?
+
+  tenant          Tenant     @relation(fields: [tenantId], references: [id])
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+  groupRoles      GroupRole[]
+
+  @@index([tenantId])
+}
+
+model Permission {
+  id               String  @id @default(cuid())
+  code             String  @unique
+  description      String?
+  rolePermissions  RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+}
+
+model UserRole {
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+
+  user      User @relation(fields: [userId], references: [id])
+  role      Role @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+}
+
+model GroupRole {
+  groupId   String
+  roleId    String
+  createdAt DateTime @default(now())
+
+  group     Group @relation(fields: [groupId], references: [id])
+  role      Role  @relation(fields: [roleId], references: [id])
+
+  @@id([groupId, roleId])
+}
