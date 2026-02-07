@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "tsx watch src/main.ts",
+    "dev": "node --watch -r ts-node/register -r tsconfig-paths/register src/main.ts",
     "start": "node dist/main.js",
     "build": "tsc -p tsconfig.json",
     "prisma:generate": "prisma generate",
@@ -35,7 +35,8 @@
     "@types/passport": "^1.0.17",
     "@types/passport-jwt": "^4.0.1",
     "prisma": "^5.19.1",
-    "tsx": "^4.21.0",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.3"
   }
 }
