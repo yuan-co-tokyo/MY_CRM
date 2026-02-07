@@ -1,6 +1,11 @@
 const { PrismaClient } = require("@prisma/client");
+const bcrypt = require("bcryptjs");
 
 const prisma = new PrismaClient();
+
+const SEED_TENANT_NAME = process.env.SEED_TENANT_NAME || "テストテナント";
+const SEED_ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || "admin@example.com";
+const SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "ChangeMe123!";
 
 const ROLE_NAMES = {
   ADMIN: "ADMIN",
@@ -60,6 +65,7 @@ async function main() {
     });
   }
 
+  const seedTenant = await upsertTenant(SEED_TENANT_NAME);
   const tenants = await prisma.tenant.findMany({
     where: { deletedAt: null },
     select: { id: true }
@@ -87,7 +93,54 @@ async function main() {
     await assignRolePermissions(adminRole.id, allPermissionIds);
     await assignRolePermissions(privilegedRole.id, allPermissionIds);
     await assignRolePermissions(standardRole.id, standardPermissionIds);
+
+    if (tenant.id === seedTenant.id) {
+      await upsertAdminUser(seedTenant.id, adminRole.id);
+    }
   }
+}
+
+async function upsertTenant(name) {
+  const existing = await prisma.tenant.findFirst({
+    where: { name, deletedAt: null }
+  });
+
+  if (existing) {
+    return prisma.tenant.update({
+      where: { id: existing.id },
+      data: { deletedAt: null }
+    });
+  }
+
+  return prisma.tenant.create({
+    data: { name }
+  });
+}
+
+async function upsertAdminUser(tenantId, adminRoleId) {
+  const passwordHash = await bcrypt.hash(SEED_ADMIN_PASSWORD, 12);
+
+  const existingUser = await prisma.user.findFirst({
+    where: { tenantId, email: SEED_ADMIN_EMAIL }
+  });
+
+  const user =
+    existingUser ??
+    (await prisma.user.create({
+      data: {
+        tenantId,
+        email: SEED_ADMIN_EMAIL,
+        passwordHash,
+        name: "Admin",
+        status: "ACTIVE",
+        userType: "ADMIN"
+      }
+    }));
+
+  await prisma.userRole.createMany({
+    data: [{ userId: user.id, roleId: adminRoleId }],
+    skipDuplicates: true
+  });
 }
 
 async function upsertRole(tenantId, name) {
