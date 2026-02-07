@@ -1,0 +1,8 @@
+{
+  "name": "my_crm",
+  "private": true,
+  "packageManager": "pnpm@9.15.1",
+  "workspaces": [
+    "packages/*"
+  ]
+}
