@@ -66,6 +66,7 @@ model User {
   ownerCustomers    Customer[]   @relation("CustomerOwner")
   interactions      Interaction[]
   userRoles         UserRole[]
+  refreshTokens     RefreshToken[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -205,4 +206,17 @@ model GroupRole {
   role      Role  @relation(fields: [roleId], references: [id])
 
   @@id([groupId, roleId])
+}
+
+model RefreshToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
