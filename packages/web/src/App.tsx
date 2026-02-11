@@ -33,6 +33,16 @@ type User = {
   name: string;
 };
 
+type Interaction = {
+  id: string;
+  customer: { id: string; name: string };
+  user: { id: string; name: string; email: string };
+  type: "CALL" | "EMAIL" | "MEETING" | "NOTE";
+  note: string;
+  occurredAt: string;
+  createdAt: string;
+};
+
 type ViewKey = "permissions" | "customers";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
@@ -89,6 +99,11 @@ export default function App() {
   const [customerForm, setCustomerForm] = useState({ ...emptyCustomer });
   const [customerFormMode, setCustomerFormMode] = useState<"create" | "edit">("create");
   const [customerFormOpen, setCustomerFormOpen] = useState(false);
+  const [interactions, setInteractions] = useState<Interaction[]>([]);
+  const [interactionNote, setInteractionNote] = useState("");
+  const [interactionType, setInteractionType] = useState<Interaction["type"]>("NOTE");
+  const [interactionDate, setInteractionDate] = useState(() => new Date().toISOString().slice(0, 16));
+  const [interactionLoading, setInteractionLoading] = useState(false);
 
   useEffect(() => {
     localStorage.setItem("crm_token", token);
@@ -108,6 +123,14 @@ export default function App() {
     void loadCustomers();
     void loadUsers();
   }, [token]);
+
+  useEffect(() => {
+    if (!token || !selectedCustomerId) {
+      setInteractions([]);
+      return;
+    }
+    void loadInteractions(selectedCustomerId);
+  }, [token, selectedCustomerId]);
 
   const selectedRole = roles.find((role) => role.id === selectedRoleId) || null;
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId) || null;
@@ -175,6 +198,43 @@ export default function App() {
       setUsers(res);
     } catch (err: any) {
       setError(err.message || "Failed to load users");
+    }
+  }
+
+  async function loadInteractions(customerId: string) {
+    setInteractionLoading(true);
+    try {
+      const res = await apiFetch<Interaction[]>(`/interactions?customerId=${customerId}`, token);
+      setInteractions(res);
+    } catch (err: any) {
+      setError(err.message || "Failed to load interactions");
+    } finally {
+      setInteractionLoading(false);
+    }
+  }
+
+  async function addInteraction() {
+    if (!selectedCustomerId) return;
+    if (!interactionNote.trim()) {
+      setError("Interaction note is required");
+      return;
+    }
+
+    setError("");
+    try {
+      const created = await apiFetch<Interaction>("/interactions", token, {
+        method: "POST",
+        body: JSON.stringify({
+          customerId: selectedCustomerId,
+          type: interactionType,
+          note: interactionNote.trim(),
+          occurredAt: new Date(interactionDate).toISOString()
+        })
+      });
+      setInteractions((prev) => [created, ...prev]);
+      setInteractionNote("");
+    } catch (err: any) {
+      setError(err.message || "Failed to create interaction");
     }
   }
 
@@ -579,14 +639,67 @@ export default function App() {
             )}
 
             {selectedCustomer && (
-              <div className="detail-actions">
-                <button className="ghost" onClick={() => openEditCustomer(selectedCustomer)}>
-                  Edit
-                </button>
-                <button className="danger" onClick={() => void removeCustomer(selectedCustomer.id)}>
-                  Delete
-                </button>
-              </div>
+              <>
+                <div className="detail-actions">
+                  <button className="ghost" onClick={() => openEditCustomer(selectedCustomer)}>
+                    Edit
+                  </button>
+                  <button className="danger" onClick={() => void removeCustomer(selectedCustomer.id)}>
+                    Delete
+                  </button>
+                </div>
+
+                <div className="timeline">
+                  <div className="timeline-header">
+                    <h3>Interactions</h3>
+                    <span className="chip">{interactions.length}</span>
+                  </div>
+                  <div className="timeline-form">
+                    <select
+                      value={interactionType}
+                      onChange={(event) =>
+                        setInteractionType(event.target.value as Interaction["type"])
+                      }
+                    >
+                      <option value="NOTE">Note</option>
+                      <option value="CALL">Call</option>
+                      <option value="EMAIL">Email</option>
+                      <option value="MEETING">Meeting</option>
+                    </select>
+                    <input
+                      type="datetime-local"
+                      value={interactionDate}
+                      onChange={(event) => setInteractionDate(event.target.value)}
+                    />
+                    <input
+                      value={interactionNote}
+                      onChange={(event) => setInteractionNote(event.target.value)}
+                      placeholder="Write a quick note"
+                    />
+                    <button className="primary" onClick={addInteraction}>
+                      Add
+                    </button>
+                  </div>
+                  <div className="timeline-list">
+                    {interactionLoading && <p className="muted">Loading interactions...</p>}
+                    {!interactionLoading && interactions.length === 0 && (
+                      <p className="muted">No interactions yet.</p>
+                    )}
+                    {interactions.map((interaction) => (
+                      <div key={interaction.id} className="timeline-item">
+                        <div>
+                          <p className="timeline-type">{interaction.type}</p>
+                          <p className="timeline-note">{interaction.note}</p>
+                        </div>
+                        <div className="timeline-meta">
+                          <span>{new Date(interaction.occurredAt).toLocaleString()}</span>
+                          <span>{interaction.user?.name || "Unknown"}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
           </section>
         </main>
