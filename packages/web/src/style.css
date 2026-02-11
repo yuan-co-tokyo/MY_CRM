@@ -85,6 +85,19 @@ h1 {
   gap: 16px;
 }
 
+.token-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.token-divider {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  text-align: center;
+}
+
 .token-card .label {
   font-size: 12px;
   letter-spacing: 0.08em;
