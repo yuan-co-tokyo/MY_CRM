@@ -13,6 +13,8 @@ import {
 import { z } from "zod";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
+import { RequirePermissions } from "../auth/permissions.decorator";
+import { PermissionsGuard } from "../auth/permissions.guard";
 import type { AuthenticatedRequest } from "../auth/auth.types";
 import { InteractionsService } from "./interactions.service";
 
@@ -36,11 +38,12 @@ const listQuerySchema = z.object({
 });
 
 @Controller("interactions")
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class InteractionsController {
   constructor(private readonly interactionsService: InteractionsService) {}
 
   @Get()
+  @RequirePermissions("interaction.read")
   async list(
     @Req() req: AuthenticatedRequest,
     @Query(new ZodValidationPipe(listQuerySchema)) query: z.infer<typeof listQuerySchema>
@@ -49,6 +52,7 @@ export class InteractionsController {
   }
 
   @Post()
+  @RequirePermissions("interaction.create")
   async create(
     @Req() req: AuthenticatedRequest,
     @Body(new ZodValidationPipe(createInteractionSchema)) body: z.infer<typeof createInteractionSchema>
@@ -57,11 +61,13 @@ export class InteractionsController {
   }
 
   @Get(":id")
+  @RequirePermissions("interaction.read")
   async get(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return this.interactionsService.get(req.user, id);
   }
 
   @Patch(":id")
+  @RequirePermissions("interaction.update")
   async update(
     @Req() req: AuthenticatedRequest,
     @Param("id") id: string,
@@ -71,6 +77,7 @@ export class InteractionsController {
   }
 
   @Delete(":id")
+  @RequirePermissions("interaction.delete")
   async remove(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     await this.interactionsService.remove(req.user, id);
     return { status: "ok" };
