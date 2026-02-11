@@ -7,9 +7,18 @@ import { CustomersModule } from "./customers/customers.module";
 import { InteractionsModule } from "./interactions/interactions.module";
 import { UsersModule } from "./users/users.module";
 import { GroupsModule } from "./groups/groups.module";
+import { RolesModule } from "./roles/roles.module";
 
 @Module({
-  imports: [PrismaModule, AuthModule, CustomersModule, InteractionsModule, UsersModule, GroupsModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    CustomersModule,
+    InteractionsModule,
+    UsersModule,
+    GroupsModule,
+    RolesModule
+  ],
   controllers: [AppController],
   providers: [AppService]
 })
