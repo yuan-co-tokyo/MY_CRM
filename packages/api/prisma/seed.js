@@ -51,6 +51,7 @@ const PERMISSIONS = [
 ];
 
 const STANDARD_PERMISSION_CODES = new Set([
+  "customer.create",
   "customer.read",
   "interaction.read",
   "interaction.create"
