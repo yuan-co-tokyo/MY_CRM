@@ -65,6 +65,10 @@ const emptyCustomer = {
 
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem("crm_token") || "");
+  const [tenantId, setTenantId] = useState(() => localStorage.getItem("crm_tenant") || "");
+  const [loginEmail, setLoginEmail] = useState(() => localStorage.getItem("crm_email") || "");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loggingIn, setLoggingIn] = useState(false);
   const [view, setView] = useState<ViewKey>("permissions");
 
   const [roles, setRoles] = useState<Role[]>([]);
@@ -89,6 +93,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("crm_token", token);
   }, [token]);
+
+  useEffect(() => {
+    localStorage.setItem("crm_tenant", tenantId);
+  }, [tenantId]);
+
+  useEffect(() => {
+    localStorage.setItem("crm_email", loginEmail);
+  }, [loginEmail]);
 
   useEffect(() => {
     if (!token) return;
@@ -164,6 +176,40 @@ export default function App() {
     } catch (err: any) {
       setError(err.message || "Failed to load users");
     }
+  }
+
+  async function login() {
+    if (!tenantId || !loginEmail || !loginPassword) {
+      setError("Tenant ID / Email / Password are required");
+      return;
+    }
+
+    setError("");
+    setLoggingIn(true);
+    try {
+      const res = await apiFetch<{ accessToken: string }>("/auth/login", "", {
+        method: "POST",
+        body: JSON.stringify({
+          tenantId,
+          email: loginEmail,
+          password: loginPassword
+        })
+      });
+      setToken(res.accessToken);
+      setLoginPassword("");
+    } catch (err: any) {
+      setError(err.message || "Login failed");
+    } finally {
+      setLoggingIn(false);
+    }
+  }
+
+  function logout() {
+    setToken("");
+    setRoles([]);
+    setPermissions([]);
+    setCustomers([]);
+    setUsers([]);
   }
 
   async function updateRolePermissions(roleId: string, nextPermissions: string[]) {
@@ -286,6 +332,40 @@ export default function App() {
           </p>
         </div>
         <div className="token-card">
+          <div>
+            <span className="label">Tenant ID</span>
+            <input
+              value={tenantId}
+              onChange={(event) => setTenantId(event.target.value)}
+              placeholder="Tenant ID"
+            />
+          </div>
+          <div>
+            <span className="label">Email</span>
+            <input
+              value={loginEmail}
+              onChange={(event) => setLoginEmail(event.target.value)}
+              placeholder="admin@example.com"
+            />
+          </div>
+          <div>
+            <span className="label">Password</span>
+            <input
+              type="password"
+              value={loginPassword}
+              onChange={(event) => setLoginPassword(event.target.value)}
+              placeholder="********"
+            />
+          </div>
+          <div className="token-actions">
+            <button className="primary" onClick={login} disabled={loggingIn}>
+              {loggingIn ? "Signing in..." : "Sign in"}
+            </button>
+            <button className="ghost" onClick={logout} disabled={!token}>
+              Sign out
+            </button>
+          </div>
+          <div className="token-divider">or</div>
           <div>
             <span className="label">Access Token</span>
             <input
