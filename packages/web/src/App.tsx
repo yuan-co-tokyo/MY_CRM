@@ -31,6 +31,8 @@ type User = {
   id: string;
   email: string;
   name: string;
+  status?: "ACTIVE" | "SUSPENDED";
+  userType?: "ADMIN" | "STANDARD" | "PRIVILEGED";
 };
 
 type Interaction = {
@@ -43,7 +45,7 @@ type Interaction = {
   createdAt: string;
 };
 
-type ViewKey = "permissions" | "customers";
+type ViewKey = "permissions" | "customers" | "users";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
 
@@ -109,6 +111,14 @@ export default function App() {
   const [editInteractionType, setEditInteractionType] = useState<Interaction["type"]>("NOTE");
   const [editInteractionDate, setEditInteractionDate] = useState("");
   const [editInteractionNote, setEditInteractionNote] = useState("");
+  const [userFormOpen, setUserFormOpen] = useState(false);
+  const [userForm, setUserForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    status: "ACTIVE" as const,
+    userType: "STANDARD" as const
+  });
 
   useEffect(() => {
     localStorage.setItem("crm_token", token);
@@ -203,6 +213,41 @@ export default function App() {
       setUsers(res);
     } catch (err: any) {
       setError(err.message || "Failed to load users");
+    }
+  }
+
+  function openCreateUser() {
+    setUserForm({
+      name: "",
+      email: "",
+      password: "",
+      status: "ACTIVE",
+      userType: "STANDARD"
+    });
+    setUserFormOpen(true);
+  }
+
+  async function createUser() {
+    if (!userForm.name || !userForm.email || !userForm.password) {
+      setError("Name / Email / Password are required");
+      return;
+    }
+    setError("");
+    try {
+      const created = await apiFetch<User>("/users", token, {
+        method: "POST",
+        body: JSON.stringify({
+          name: userForm.name,
+          email: userForm.email,
+          password: userForm.password,
+          status: userForm.status,
+          userType: userForm.userType
+        })
+      });
+      setUsers((prev) => [created, ...prev]);
+      setUserFormOpen(false);
+    } catch (err: any) {
+      setError(err.message || "Failed to create user");
     }
   }
 
@@ -512,6 +557,12 @@ export default function App() {
         >
           Customers
         </button>
+        <button
+          className={`tab ${view === "users" ? "active" : ""}`}
+          onClick={() => setView("users")}
+        >
+          Users
+        </button>
       </nav>
 
       {error && <div className="global-error">{error}</div>}
@@ -617,7 +668,7 @@ export default function App() {
             </div>
           </section>
         </main>
-      ) : (
+      ) : view === "customers" ? (
         <main className="layout customers">
           <section className="panel customer-list">
             <div className="panel-header">
@@ -814,6 +865,39 @@ export default function App() {
             )}
           </section>
         </main>
+      ) : (
+        <main className="layout users">
+          <section className="panel user-list">
+            <div className="panel-header">
+              <h2>Users</h2>
+              <span className="chip">{users.length}</span>
+            </div>
+            <div className="role-scroll">
+              {users.map((user) => (
+                <div key={user.id} className="role-item">
+                  <div>
+                    <p className="role-name">{user.name}</p>
+                    <p className="role-meta">{user.email}</p>
+                  </div>
+                  <span className="chip">{user.userType || "STANDARD"}</span>
+                </div>
+              ))}
+            </div>
+            <button className="primary" onClick={openCreateUser}>
+              Add user
+            </button>
+          </section>
+
+          <section className="panel user-detail">
+            <div className="panel-header">
+              <h2>Create new user</h2>
+            </div>
+            <p className="muted">Add a teammate to assign as owner or assignee on customers.</p>
+            <button className="primary" onClick={openCreateUser}>
+              Open form
+            </button>
+          </section>
+        </main>
       )}
 
       {customerFormOpen && (
@@ -911,6 +995,79 @@ export default function App() {
                 Cancel
               </button>
               <button className="primary" onClick={saveCustomer}>
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {userFormOpen && (
+        <div className="modal">
+          <div className="modal-card">
+            <h3>Create user</h3>
+            <div className="form-grid">
+              <label>
+                Name
+                <input
+                  value={userForm.name}
+                  onChange={(event) => setUserForm((prev) => ({ ...prev, name: event.target.value }))}
+                />
+              </label>
+              <label>
+                Email
+                <input
+                  value={userForm.email}
+                  onChange={(event) => setUserForm((prev) => ({ ...prev, email: event.target.value }))}
+                />
+              </label>
+              <label>
+                Password
+                <input
+                  type="password"
+                  value={userForm.password}
+                  onChange={(event) =>
+                    setUserForm((prev) => ({ ...prev, password: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Status
+                <select
+                  value={userForm.status}
+                  onChange={(event) =>
+                    setUserForm((prev) => ({
+                      ...prev,
+                      status: event.target.value as User["status"]
+                    }))
+                  }
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="SUSPENDED">Suspended</option>
+                </select>
+              </label>
+              <label>
+                User type
+                <select
+                  value={userForm.userType}
+                  onChange={(event) =>
+                    setUserForm((prev) => ({
+                      ...prev,
+                      userType: event.target.value as User["userType"]
+                    }))
+                  }
+                >
+                  <option value="STANDARD">Standard</option>
+                  <option value="PRIVILEGED">Privileged</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button className="ghost" onClick={() => setUserFormOpen(false)}>
+                Cancel
+              </button>
+              <button className="primary" onClick={createUser}>
                 Save
               </button>
             </div>
