@@ -464,6 +464,24 @@ button:disabled {
   text-align: right;
 }
 
+.timeline-edit {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.timeline-edit-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.timeline-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .modal {
   position: fixed;
   inset: 0;

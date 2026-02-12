@@ -104,6 +104,10 @@ export default function App() {
   const [interactionType, setInteractionType] = useState<Interaction["type"]>("NOTE");
   const [interactionDate, setInteractionDate] = useState(() => new Date().toISOString().slice(0, 16));
   const [interactionLoading, setInteractionLoading] = useState(false);
+  const [editingInteractionId, setEditingInteractionId] = useState<string | null>(null);
+  const [editInteractionType, setEditInteractionType] = useState<Interaction["type"]>("NOTE");
+  const [editInteractionDate, setEditInteractionDate] = useState("");
+  const [editInteractionNote, setEditInteractionNote] = useState("");
 
   useEffect(() => {
     localStorage.setItem("crm_token", token);
@@ -235,6 +239,57 @@ export default function App() {
       setInteractionNote("");
     } catch (err: any) {
       setError(err.message || "Failed to create interaction");
+    }
+  }
+
+  function startEditInteraction(interaction: Interaction) {
+    setEditingInteractionId(interaction.id);
+    setEditInteractionType(interaction.type);
+    setEditInteractionDate(interaction.occurredAt.slice(0, 16));
+    setEditInteractionNote(interaction.note);
+  }
+
+  function cancelEditInteraction() {
+    setEditingInteractionId(null);
+    setEditInteractionNote("");
+    setEditInteractionDate("");
+  }
+
+  async function saveEditInteraction() {
+    if (!editingInteractionId) return;
+    if (!editInteractionNote.trim()) {
+      setError("Interaction note is required");
+      return;
+    }
+
+    setError("");
+    try {
+      const updated = await apiFetch<Interaction>(
+        `/interactions/${editingInteractionId}`,
+        token,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            type: editInteractionType,
+            note: editInteractionNote.trim(),
+            occurredAt: new Date(editInteractionDate).toISOString()
+          })
+        }
+      );
+      setInteractions((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      setEditingInteractionId(null);
+    } catch (err: any) {
+      setError(err.message || "Failed to update interaction");
+    }
+  }
+
+  async function deleteInteraction(interactionId: string) {
+    setError("");
+    try {
+      await apiFetch(`/interactions/${interactionId}`, token, { method: "DELETE" });
+      setInteractions((prev) => prev.filter((item) => item.id !== interactionId));
+    } catch (err: any) {
+      setError(err.message || "Failed to delete interaction");
     }
   }
 
@@ -687,14 +742,67 @@ export default function App() {
                     )}
                     {interactions.map((interaction) => (
                       <div key={interaction.id} className="timeline-item">
-                        <div>
-                          <p className="timeline-type">{interaction.type}</p>
-                          <p className="timeline-note">{interaction.note}</p>
-                        </div>
-                        <div className="timeline-meta">
-                          <span>{new Date(interaction.occurredAt).toLocaleString()}</span>
-                          <span>{interaction.user?.name || "Unknown"}</span>
-                        </div>
+                        {editingInteractionId === interaction.id ? (
+                          <div className="timeline-edit">
+                            <div className="timeline-edit-row">
+                              <select
+                                value={editInteractionType}
+                                onChange={(event) =>
+                                  setEditInteractionType(
+                                    event.target.value as Interaction["type"]
+                                  )
+                                }
+                              >
+                                <option value="NOTE">Note</option>
+                                <option value="CALL">Call</option>
+                                <option value="EMAIL">Email</option>
+                                <option value="MEETING">Meeting</option>
+                              </select>
+                              <input
+                                type="datetime-local"
+                                value={editInteractionDate}
+                                onChange={(event) => setEditInteractionDate(event.target.value)}
+                              />
+                            </div>
+                            <input
+                              value={editInteractionNote}
+                              onChange={(event) => setEditInteractionNote(event.target.value)}
+                            />
+                            <div className="timeline-actions">
+                              <button className="ghost" onClick={cancelEditInteraction}>
+                                Cancel
+                              </button>
+                              <button className="primary" onClick={saveEditInteraction}>
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div>
+                              <p className="timeline-type">{interaction.type}</p>
+                              <p className="timeline-note">{interaction.note}</p>
+                            </div>
+                            <div className="timeline-meta">
+                              <span>{new Date(interaction.occurredAt).toLocaleString()}</span>
+                              <span>{interaction.user?.name || "Unknown"}</span>
+                              <div className="timeline-actions">
+                                <button
+                                  className="ghost"
+                                  onClick={() => startEditInteraction(interaction)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  className="danger"
+                                  onClick={() => deleteInteraction(interaction.id)}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>
