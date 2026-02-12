@@ -70,7 +70,8 @@ const emptyCustomer = {
   email: "",
   phone: "",
   status: "LEAD" as const,
-  ownerUserId: ""
+  ownerUserId: "",
+  assigneeUserIds: [] as string[]
 };
 
 export default function App() {
@@ -386,7 +387,8 @@ export default function App() {
       email: customer.email ?? "",
       phone: customer.phone ?? "",
       status: customer.status,
-      ownerUserId: customer.owner?.id ?? ""
+      ownerUserId: customer.owner?.id ?? "",
+      assigneeUserIds: customer.assignees.map((assignee) => assignee.id)
     });
     setCustomerFormMode("edit");
     setCustomerFormOpen(true);
@@ -399,7 +401,8 @@ export default function App() {
       email: customerForm.email || null,
       phone: customerForm.phone || null,
       status: customerForm.status,
-      ownerUserId: customerForm.ownerUserId || null
+      ownerUserId: customerForm.ownerUserId || null,
+      assigneeUserIds: customerForm.assigneeUserIds
     };
 
     try {
@@ -877,6 +880,31 @@ export default function App() {
                   ))}
                 </select>
               </label>
+              <div>
+                <p className="label">Assignees</p>
+                <div className="assignee-list">
+                  {users.map((user) => {
+                    const checked = customerForm.assigneeUserIds.includes(user.id);
+                    return (
+                      <label key={user.id} className={`assignee-chip ${checked ? "active" : ""}`}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setCustomerForm((prev) => ({
+                              ...prev,
+                              assigneeUserIds: checked
+                                ? prev.assigneeUserIds.filter((id) => id !== user.id)
+                                : [...prev.assigneeUserIds, user.id]
+                            }))
+                          }
+                        />
+                        <span>{user.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
             <div className="modal-actions">
               <button className="ghost" onClick={() => setCustomerFormOpen(false)}>
