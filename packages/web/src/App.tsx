@@ -138,11 +138,13 @@ export default function App() {
 
   const [canSeePermissionsTab, setCanSeePermissionsTab] = useState(false);
   const [canSeeUsersTab, setCanSeeUsersTab] = useState(false);
+  const [permissionCheckDone, setPermissionCheckDone] = useState(false);
 
   useEffect(() => {
     if (!token) {
       setCanSeePermissionsTab(false);
       setCanSeeUsersTab(false);
+      setPermissionCheckDone(false);
       return;
     }
     void loadCustomers();
@@ -251,6 +253,7 @@ export default function App() {
       const usersAccess = await canAccessPermission("user.read");
       setCanSeePermissionsTab(permissionsAccess);
       setCanSeeUsersTab(usersAccess);
+      setPermissionCheckDone(true);
     })();
   }, [token]);
 
@@ -653,7 +656,21 @@ export default function App() {
 
       {error && <div className="global-error">{error}</div>}
 
-      {view === "permissions" ? (
+      {permissionCheckDone && view === "permissions" && !canSeePermissionsTab && (
+        <div className="guard">
+          <h3>Access denied</h3>
+          <p>このユーザーには権限管理の閲覧権限がありません。</p>
+        </div>
+      )}
+
+      {permissionCheckDone && view === "users" && !canSeeUsersTab && (
+        <div className="guard">
+          <h3>Access denied</h3>
+          <p>このユーザーにはユーザー管理の閲覧権限がありません。</p>
+        </div>
+      )}
+
+      {view === "permissions" && canSeePermissionsTab ? (
         <main className="layout">
           <section className="panel role-list">
             <div className="panel-header">
@@ -951,7 +968,7 @@ export default function App() {
             )}
           </section>
         </main>
-      ) : (
+      ) : view === "users" && canSeeUsersTab ? (
         <main className="layout users">
           <section className="panel user-list">
             <div className="panel-header">
@@ -989,7 +1006,7 @@ export default function App() {
             </button>
           </section>
         </main>
-      )}
+      ) : null}
 
       {customerFormOpen && (
         <div className="modal">

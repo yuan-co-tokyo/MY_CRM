@@ -198,6 +198,26 @@ button:disabled {
   margin-bottom: 16px;
 }
 
+.guard {
+  position: relative;
+  z-index: 1;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 16px 30px var(--shadow);
+  max-width: 520px;
+}
+
+.guard h3 {
+  margin: 0 0 8px;
+}
+
+.guard p {
+  margin: 0;
+  color: var(--muted);
+}
+
 .layout {
   position: relative;
   z-index: 1;
