@@ -136,11 +136,16 @@ export default function App() {
     localStorage.setItem("crm_email", loginEmail);
   }, [loginEmail]);
 
+  const [canSeePermissionsTab, setCanSeePermissionsTab] = useState(false);
+  const [canSeeUsersTab, setCanSeeUsersTab] = useState(false);
+
   useEffect(() => {
-    if (!token) return;
-    void loadPermissions();
+    if (!token) {
+      setCanSeePermissionsTab(false);
+      setCanSeeUsersTab(false);
+      return;
+    }
     void loadCustomers();
-    void loadUsers();
   }, [token]);
 
   useEffect(() => {
@@ -150,6 +155,16 @@ export default function App() {
     }
     void loadInteractions(selectedCustomerId);
   }, [token, selectedCustomerId]);
+
+  useEffect(() => {
+    if (!token) return;
+    if (view === "permissions") {
+      void loadPermissions();
+    }
+    if (view === "users") {
+      void loadUsers();
+    }
+  }, [token, view]);
 
   const selectedRole = roles.find((role) => role.id === selectedRoleId) || null;
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId) || null;
@@ -219,6 +234,25 @@ export default function App() {
       setError(err.message || "Failed to load users");
     }
   }
+
+  async function canAccessPermission(code: string) {
+    try {
+      const res = await apiFetch<Permission[]>("/permissions", token);
+      return res.some((permission) => permission.code === code);
+    } catch {
+      return false;
+    }
+  }
+
+  useEffect(() => {
+    if (!token) return;
+    void (async () => {
+      const permissionsAccess = await canAccessPermission("role.read");
+      const usersAccess = await canAccessPermission("user.read");
+      setCanSeePermissionsTab(permissionsAccess);
+      setCanSeeUsersTab(usersAccess);
+    })();
+  }, [token]);
 
   function openCreateUser() {
     setUserForm({
@@ -585,7 +619,7 @@ export default function App() {
               placeholder="Paste JWT access token"
             />
           </div>
-          <button className="ghost" onClick={() => void loadPermissions()} disabled={!token}>
+          <button className="ghost" onClick={() => void loadCustomers()} disabled={!token}>
             Reload
           </button>
           <p className="hint">API: {API_BASE}</p>
@@ -593,24 +627,28 @@ export default function App() {
       </header>
 
       <nav className="tabs">
-        <button
-          className={`tab ${view === "permissions" ? "active" : ""}`}
-          onClick={() => setView("permissions")}
-        >
-          Permissions
-        </button>
+        {canSeePermissionsTab && (
+          <button
+            className={`tab ${view === "permissions" ? "active" : ""}`}
+            onClick={() => setView("permissions")}
+          >
+            Permissions
+          </button>
+        )}
         <button
           className={`tab ${view === "customers" ? "active" : ""}`}
           onClick={() => setView("customers")}
         >
           Customers
         </button>
-        <button
-          className={`tab ${view === "users" ? "active" : ""}`}
-          onClick={() => setView("users")}
-        >
-          Users
-        </button>
+        {canSeeUsersTab && (
+          <button
+            className={`tab ${view === "users" ? "active" : ""}`}
+            onClick={() => setView("users")}
+          >
+            Users
+          </button>
+        )}
       </nav>
 
       {error && <div className="global-error">{error}</div>}
