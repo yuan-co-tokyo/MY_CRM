@@ -123,6 +123,9 @@ export default function App() {
     userType: "STANDARD" as const,
     roleIds: [] as string[]
   });
+  const [userQuery, setUserQuery] = useState("");
+  const [userStatusFilter, setUserStatusFilter] = useState<string>("ALL");
+  const [userTypeFilter, setUserTypeFilter] = useState<string>("ALL");
 
   useEffect(() => {
     localStorage.setItem("crm_token", token);
@@ -195,6 +198,20 @@ export default function App() {
       return matchesQuery && matchesStatus;
     });
   }, [customerQuery, customerStatusFilter, customers]);
+
+  const filteredUsers = useMemo(() => {
+    const query = userQuery.trim().toLowerCase();
+    return users.filter((user) => {
+      const matchesQuery =
+        !query ||
+        [user.name, user.email].join(" ").toLowerCase().includes(query);
+      const matchesStatus =
+        userStatusFilter === "ALL" || user.status === userStatusFilter;
+      const matchesType =
+        userTypeFilter === "ALL" || user.userType === userTypeFilter;
+      return matchesQuery && matchesStatus && matchesType;
+    });
+  }, [userQuery, userStatusFilter, userTypeFilter, users]);
 
   async function loadPermissions() {
     setError("");
@@ -975,8 +992,32 @@ export default function App() {
               <h2>Users</h2>
               <span className="chip">{users.length}</span>
             </div>
+            <div className="toolbar">
+              <input
+                value={userQuery}
+                onChange={(event) => setUserQuery(event.target.value)}
+                placeholder="Search name or email"
+              />
+              <select
+                value={userStatusFilter}
+                onChange={(event) => setUserStatusFilter(event.target.value)}
+              >
+                <option value="ALL">All status</option>
+                <option value="ACTIVE">Active</option>
+                <option value="SUSPENDED">Suspended</option>
+              </select>
+              <select
+                value={userTypeFilter}
+                onChange={(event) => setUserTypeFilter(event.target.value)}
+              >
+                <option value="ALL">All types</option>
+                <option value="STANDARD">Standard</option>
+                <option value="PRIVILEGED">Privileged</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </div>
             <div className="role-scroll">
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <div key={user.id} className="role-item">
                   <div>
                     <p className="role-name">{user.name}</p>

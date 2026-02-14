@@ -234,6 +234,10 @@ button:disabled {
   grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1fr);
 }
 
+.user-pill .chip {
+  margin-right: 6px;
+}
+
 .user-pill {
   display: flex;
   align-items: center;
