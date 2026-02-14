@@ -83,7 +83,7 @@ export default function App() {
   const [loginEmail, setLoginEmail] = useState(() => localStorage.getItem("crm_email") || "");
   const [loginPassword, setLoginPassword] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
-  const [view, setView] = useState<ViewKey>("permissions");
+  const [view, setView] = useState<ViewKey>("customers");
 
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
@@ -138,10 +138,18 @@ export default function App() {
 
   useEffect(() => {
     if (!token) return;
-    void loadPermissions();
     void loadCustomers();
-    void loadUsers();
   }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    if (view === "permissions") {
+      void loadPermissions();
+    }
+    if (view === "users") {
+      void loadUsers();
+    }
+  }, [token, view]);
 
   useEffect(() => {
     if (!token || !selectedCustomerId) {
