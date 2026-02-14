@@ -214,6 +214,12 @@ button:disabled {
   grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1fr);
 }
 
+.user-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .panel {
   background: var(--panel);
   border-radius: 24px;

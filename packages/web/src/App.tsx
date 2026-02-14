@@ -33,6 +33,7 @@ type User = {
   name: string;
   status?: "ACTIVE" | "SUSPENDED";
   userType?: "ADMIN" | "STANDARD" | "PRIVILEGED";
+  roleIds?: string[];
 };
 
 type Interaction = {
@@ -112,12 +113,15 @@ export default function App() {
   const [editInteractionDate, setEditInteractionDate] = useState("");
   const [editInteractionNote, setEditInteractionNote] = useState("");
   const [userFormOpen, setUserFormOpen] = useState(false);
+  const [userFormMode, setUserFormMode] = useState<"create" | "edit">("create");
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [userForm, setUserForm] = useState({
     name: "",
     email: "",
     password: "",
     status: "ACTIVE" as const,
-    userType: "STANDARD" as const
+    userType: "STANDARD" as const,
+    roleIds: [] as string[]
   });
 
   useEffect(() => {
@@ -222,8 +226,25 @@ export default function App() {
       email: "",
       password: "",
       status: "ACTIVE",
-      userType: "STANDARD"
+      userType: "STANDARD",
+      roleIds: []
     });
+    setUserFormMode("create");
+    setEditingUserId(null);
+    setUserFormOpen(true);
+  }
+
+  function openEditUser(user: User) {
+    setUserForm({
+      name: user.name,
+      email: user.email,
+      password: "",
+      status: user.status ?? "ACTIVE",
+      userType: user.userType ?? "STANDARD",
+      roleIds: user.roleIds ?? []
+    });
+    setUserFormMode("edit");
+    setEditingUserId(user.id);
     setUserFormOpen(true);
   }
 
@@ -241,13 +262,40 @@ export default function App() {
           email: userForm.email,
           password: userForm.password,
           status: userForm.status,
-          userType: userForm.userType
+          userType: userForm.userType,
+          roleIds: userForm.roleIds
         })
       });
       setUsers((prev) => [created, ...prev]);
       setUserFormOpen(false);
     } catch (err: any) {
       setError(err.message || "Failed to create user");
+    }
+  }
+
+  async function updateUser() {
+    if (!editingUserId) return;
+    if (!userForm.name || !userForm.email) {
+      setError("Name / Email are required");
+      return;
+    }
+    setError("");
+    try {
+      const updated = await apiFetch<User>(`/users/${editingUserId}`, token, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: userForm.name,
+          email: userForm.email,
+          password: userForm.password || undefined,
+          status: userForm.status,
+          userType: userForm.userType,
+          roleIds: userForm.roleIds
+        })
+      });
+      setUsers((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      setUserFormOpen(false);
+    } catch (err: any) {
+      setError(err.message || "Failed to update user");
     }
   }
 
@@ -879,7 +927,12 @@ export default function App() {
                     <p className="role-name">{user.name}</p>
                     <p className="role-meta">{user.email}</p>
                   </div>
-                  <span className="chip">{user.userType || "STANDARD"}</span>
+                  <div className="user-pill">
+                    <span className="chip">{user.userType || "STANDARD"}</span>
+                    <button className="ghost" onClick={() => openEditUser(user)}>
+                      Edit
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1005,7 +1058,7 @@ export default function App() {
       {userFormOpen && (
         <div className="modal">
           <div className="modal-card">
-            <h3>Create user</h3>
+            <h3>{userFormMode === "create" ? "Create user" : "Edit user"}</h3>
             <div className="form-grid">
               <label>
                 Name
@@ -1062,14 +1115,45 @@ export default function App() {
                   <option value="ADMIN">Admin</option>
                 </select>
               </label>
+              <div>
+                <p className="label">Roles</p>
+                <div className="assignee-list">
+                  {roles.map((role) => {
+                    const checked = userForm.roleIds.includes(role.id);
+                    return (
+                      <label key={role.id} className={`assignee-chip ${checked ? "active" : ""}`}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setUserForm((prev) => ({
+                              ...prev,
+                              roleIds: checked
+                                ? prev.roleIds.filter((id) => id !== role.id)
+                                : [...prev.roleIds, role.id]
+                            }))
+                          }
+                        />
+                        <span>{role.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
             <div className="modal-actions">
               <button className="ghost" onClick={() => setUserFormOpen(false)}>
                 Cancel
               </button>
-              <button className="primary" onClick={createUser}>
-                Save
-              </button>
+              {userFormMode === "create" ? (
+                <button className="primary" onClick={createUser}>
+                  Save
+                </button>
+              ) : (
+                <button className="primary" onClick={updateUser}>
+                  Update
+                </button>
+              )}
             </div>
           </div>
         </div>
