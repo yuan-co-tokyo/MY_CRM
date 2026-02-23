@@ -8,6 +8,7 @@ import { InteractionsModule } from "./interactions/interactions.module";
 import { UsersModule } from "./users/users.module";
 import { GroupsModule } from "./groups/groups.module";
 import { RolesModule } from "./roles/roles.module";
+import { DashboardModule } from "./dashboard/dashboard.module";
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { RolesModule } from "./roles/roles.module";
     InteractionsModule,
     UsersModule,
     GroupsModule,
-    RolesModule
+    RolesModule,
+    DashboardModule
   ],
   controllers: [AppController],
   providers: [AppService]
