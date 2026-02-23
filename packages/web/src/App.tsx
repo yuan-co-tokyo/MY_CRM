@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "./style.css";
+import LoginPage from "./LoginPage";
+import DashboardPage from "./DashboardPage";
 
 type Permission = {
   id: string;
@@ -46,7 +48,7 @@ type Interaction = {
   createdAt: string;
 };
 
-type ViewKey = "permissions" | "customers" | "users";
+type ViewKey = "permissions" | "customers" | "users" | "dashboard";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
 
@@ -83,7 +85,7 @@ export default function App() {
   const [loginEmail, setLoginEmail] = useState(() => localStorage.getItem("crm_email") || "");
   const [loginPassword, setLoginPassword] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
-  const [view, setView] = useState<ViewKey>("permissions");
+  const [view, setView] = useState<ViewKey>("dashboard");
 
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
@@ -469,6 +471,7 @@ export default function App() {
 
   function logout() {
     setToken("");
+    setError("");
     setRoles([]);
     setPermissions([]);
     setCustomers([]);
@@ -584,92 +587,69 @@ export default function App() {
     }
   }
 
+  if (!token) {
+    return (
+      <LoginPage
+        tenantId={tenantId}
+        setTenantId={setTenantId}
+        loginEmail={loginEmail}
+        setLoginEmail={setLoginEmail}
+        loginPassword={loginPassword}
+        setLoginPassword={setLoginPassword}
+        token={token}
+        setToken={setToken}
+        loggingIn={loggingIn}
+        error={error}
+        onLogin={() => void login()}
+      />
+    );
+  }
+
   return (
     <div className="app">
       <div className="backdrop" />
-      <header className="hero">
-        <div>
-          <p className="eyebrow">MY CRM • Access Studio</p>
-          <h1>権限と顧客を、ひとつの操作空間で。</h1>
-          <p className="lead">
-            権限はロールに集約、顧客は担当とステータスで即時に切り替え。
-            学習用途でも運用を意識した管理体験を追求します。
-          </p>
-        </div>
-        <div className="token-card">
-          <div>
-            <span className="label">Tenant ID</span>
-            <input
-              value={tenantId}
-              onChange={(event) => setTenantId(event.target.value)}
-              placeholder="Tenant ID"
-            />
+      <div className="shell">
+        <nav className="sidebar">
+          <div className="sidebar-logo">
+            <p className="eyebrow">MY CRM</p>
           </div>
-          <div>
-            <span className="label">Email</span>
-            <input
-              value={loginEmail}
-              onChange={(event) => setLoginEmail(event.target.value)}
-              placeholder="admin@example.com"
-            />
-          </div>
-          <div>
-            <span className="label">Password</span>
-            <input
-              type="password"
-              value={loginPassword}
-              onChange={(event) => setLoginPassword(event.target.value)}
-              placeholder="********"
-            />
-          </div>
-          <div className="token-actions">
-            <button className="primary" onClick={login} disabled={loggingIn}>
-              {loggingIn ? "Signing in..." : "Sign in"}
+          <div className="sidebar-nav">
+            <button
+              className={`sidebar-item ${view === "dashboard" ? "active" : ""}`}
+              onClick={() => setView("dashboard")}
+            >
+              Dashboard
             </button>
-            <button className="ghost" onClick={logout} disabled={!token}>
+            {canSeePermissionsTab && (
+              <button
+                className={`sidebar-item ${view === "permissions" ? "active" : ""}`}
+                onClick={() => setView("permissions")}
+              >
+                Permissions
+              </button>
+            )}
+            <button
+              className={`sidebar-item ${view === "customers" ? "active" : ""}`}
+              onClick={() => setView("customers")}
+            >
+              Customers
+            </button>
+            {canSeeUsersTab && (
+              <button
+                className={`sidebar-item ${view === "users" ? "active" : ""}`}
+                onClick={() => setView("users")}
+              >
+                Users
+              </button>
+            )}
+          </div>
+          <div className="sidebar-footer">
+            <button className="sidebar-item" onClick={logout}>
               Sign out
             </button>
           </div>
-          <div className="token-divider">or</div>
-          <div>
-            <span className="label">Access Token</span>
-            <input
-              value={token}
-              onChange={(event) => setToken(event.target.value)}
-              placeholder="Paste JWT access token"
-            />
-          </div>
-          <button className="ghost" onClick={() => void loadCustomers()} disabled={!token}>
-            Reload
-          </button>
-          <p className="hint">API: {API_BASE}</p>
-        </div>
-      </header>
-
-      <nav className="tabs">
-        {canSeePermissionsTab && (
-          <button
-            className={`tab ${view === "permissions" ? "active" : ""}`}
-            onClick={() => setView("permissions")}
-          >
-            Permissions
-          </button>
-        )}
-        <button
-          className={`tab ${view === "customers" ? "active" : ""}`}
-          onClick={() => setView("customers")}
-        >
-          Customers
-        </button>
-        {canSeeUsersTab && (
-          <button
-            className={`tab ${view === "users" ? "active" : ""}`}
-            onClick={() => setView("users")}
-          >
-            Users
-          </button>
-        )}
-      </nav>
+        </nav>
+        <div className="main-content">
 
       {error && <div className="global-error">{error}</div>}
 
@@ -985,6 +965,8 @@ export default function App() {
             )}
           </section>
         </main>
+      ) : view === "dashboard" ? (
+        <DashboardPage token={token} />
       ) : view === "users" && canSeeUsersTab ? (
         <main className="layout users">
           <section className="panel user-list">
@@ -1254,6 +1236,8 @@ export default function App() {
           </div>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }
