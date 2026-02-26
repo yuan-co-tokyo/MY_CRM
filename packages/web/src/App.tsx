@@ -608,28 +608,28 @@ export default function App() {
               className={`sidebar-item ${view === "dashboard" ? "active" : ""}`}
               onClick={() => setView("dashboard")}
             >
-              Dashboard
+              ホーム
             </button>
             {canSeePermissionsTab && (
               <button
                 className={`sidebar-item ${view === "permissions" ? "active" : ""}`}
                 onClick={() => setView("permissions")}
               >
-                Permissions
+                権限管理
               </button>
             )}
             <button
               className={`sidebar-item ${view === "customers" ? "active" : ""}`}
               onClick={() => setView("customers")}
             >
-              Customers
+              顧客
             </button>
             {canSeeUsersTab && (
               <button
                 className={`sidebar-item ${view === "users" ? "active" : ""}`}
                 onClick={() => setView("users")}
               >
-                Users
+                ユーザー
               </button>
             )}
           </div>
