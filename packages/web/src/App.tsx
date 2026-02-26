@@ -81,7 +81,6 @@ const emptyCustomer = {
 
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem("crm_token") || "");
-  const [tenantId, setTenantId] = useState(() => localStorage.getItem("crm_tenant") || "");
   const [loginEmail, setLoginEmail] = useState(() => localStorage.getItem("crm_email") || "");
   const [loginPassword, setLoginPassword] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
@@ -132,10 +131,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("crm_token", token);
   }, [token]);
-
-  useEffect(() => {
-    localStorage.setItem("crm_tenant", tenantId);
-  }, [tenantId]);
 
   useEffect(() => {
     localStorage.setItem("crm_email", loginEmail);
@@ -444,8 +439,8 @@ export default function App() {
   }
 
   async function login() {
-    if (!tenantId || !loginEmail || !loginPassword) {
-      setError("Tenant ID / Email / Password are required");
+    if (!loginEmail || !loginPassword) {
+      setError("Email / Password are required");
       return;
     }
 
@@ -455,7 +450,6 @@ export default function App() {
       const res = await apiFetch<{ accessToken: string }>("/auth/login", "", {
         method: "POST",
         body: JSON.stringify({
-          tenantId,
           email: loginEmail,
           password: loginPassword
         })
@@ -590,14 +584,10 @@ export default function App() {
   if (!token) {
     return (
       <LoginPage
-        tenantId={tenantId}
-        setTenantId={setTenantId}
         loginEmail={loginEmail}
         setLoginEmail={setLoginEmail}
         loginPassword={loginPassword}
         setLoginPassword={setLoginPassword}
-        token={token}
-        setToken={setToken}
         loggingIn={loggingIn}
         error={error}
         onLogin={() => void login()}

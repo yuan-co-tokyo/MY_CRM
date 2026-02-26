@@ -15,13 +15,15 @@ export class AuthService {
   ) {}
 
   async login(input: LoginInput) {
-    const user = await this.prisma.user.findFirst({
+    const user = await this.prisma.user.findUnique({
       where: {
-        tenantId: input.tenantId,
-        email: input.email,
-        deletedAt: null
+        email: input.email
       }
     });
+
+    if (user?.deletedAt) {
+      throw new UnauthorizedException("Invalid credentials");
+    }
 
     if (!user || user.status !== "ACTIVE") {
       throw new UnauthorizedException("Invalid credentials");

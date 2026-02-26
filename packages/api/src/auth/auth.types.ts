@@ -1,7 +1,6 @@
 import { Request } from "express";
 
 export type LoginInput = {
-  tenantId: string;
   email: string;
   password: string;
 };

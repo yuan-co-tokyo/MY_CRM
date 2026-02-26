@@ -6,7 +6,6 @@ import { JwtAuthGuard } from "./jwt-auth.guard";
 import type { AuthenticatedRequest } from "./auth.types";
 
 const loginSchema = z.object({
-  tenantId: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(8)
 });
