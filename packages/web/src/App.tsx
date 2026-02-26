@@ -234,9 +234,6 @@ export default function App() {
     try {
       const res = await apiFetch<Customer[]>("/customers", token);
       setCustomers(res);
-      if (!selectedCustomerId && res.length > 0) {
-        setSelectedCustomerId(res[0].id);
-      }
     } catch (err: any) {
       setError(err.message || "Failed to load customers");
     }
@@ -620,7 +617,7 @@ export default function App() {
             )}
             <button
               className={`sidebar-item ${view === "customers" ? "active" : ""}`}
-              onClick={() => setView("customers")}
+              onClick={() => { setView("customers"); setSelectedCustomerId(null); }}
             >
               顧客
             </button>
@@ -759,202 +756,212 @@ export default function App() {
           </section>
         </main>
       ) : view === "customers" ? (
-        <main className="layout customers">
-          <section className="panel customer-list">
-            <div className="panel-header">
-              <h2>Customers</h2>
-              <span className="chip">{customers.length}</span>
-            </div>
-            <div className="toolbar">
-              <input
-                value={customerQuery}
-                onChange={(event) => setCustomerQuery(event.target.value)}
-                placeholder="Search name, email, phone"
-              />
-              <select
-                value={customerStatusFilter}
-                onChange={(event) => setCustomerStatusFilter(event.target.value)}
-              >
-                <option value="ALL">All</option>
-                <option value="LEAD">Lead</option>
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-              </select>
-            </div>
-            <div className="role-scroll">
-              {filteredCustomers.map((customer) => (
-                <button
-                  key={customer.id}
-                  className={`role-item ${selectedCustomerId === customer.id ? "active" : ""}`}
-                  onClick={() => setSelectedCustomerId(customer.id)}
-                >
-                  <div>
-                    <p className="role-name">{customer.name}</p>
-                    <p className="role-meta">
-                      {customer.status} • {customer.owner?.name || "Unassigned"}
-                    </p>
-                  </div>
-                  <span className="chev">›</span>
-                </button>
-              ))}
-            </div>
-            <button className="primary" onClick={openCreateCustomer}>
-              Add customer
-            </button>
-          </section>
-
-          <section className="panel customer-detail">
-            <div className="panel-header">
-              <h2>Customer profile</h2>
-              {selectedCustomer ? (
-                <span className={`chip status-${selectedCustomer.status.toLowerCase()}`}>
-                  {selectedCustomer.status}
-                </span>
-              ) : (
-                <span className="chip">Select customer</span>
-              )}
-            </div>
-
-            {selectedCustomer ? (
-              <div className="detail-grid">
-                <div>
-                  <h3>{selectedCustomer.name}</h3>
-                  <p className="muted">{selectedCustomer.email || "No email"}</p>
-                  <p className="muted">{selectedCustomer.phone || "No phone"}</p>
-                </div>
-                <div>
-                  <p className="label">Owner</p>
-                  <p>{selectedCustomer.owner?.name || "Unassigned"}</p>
-                  <p className="label">Last updated</p>
-                  <p>{new Date(selectedCustomer.updatedAt).toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="label">Assignees</p>
-                  <p>{selectedCustomer.assignees.map((a) => a.name).join(", ") || "-"}</p>
-                </div>
+        selectedCustomerId === null ? (
+          <main className="main-content">
+            <section className="panel customer-panel-list">
+              <div className="panel-header">
+                <h2>顧客一覧</h2>
+                <span className="chip">{filteredCustomers.length}</span>
               </div>
-            ) : (
-              <p className="muted">Select a customer to view details.</p>
-            )}
-
-            {selectedCustomer && (
-              <>
-                <div className="detail-actions">
-                  <button className="ghost" onClick={() => openEditCustomer(selectedCustomer)}>
-                    Edit
+              <div className="toolbar">
+                <input
+                  value={customerQuery}
+                  onChange={(event) => setCustomerQuery(event.target.value)}
+                  placeholder="名前・メール・電話で検索"
+                />
+                <select
+                  value={customerStatusFilter}
+                  onChange={(event) => setCustomerStatusFilter(event.target.value)}
+                >
+                  <option value="ALL">All</option>
+                  <option value="LEAD">Lead</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
+              </div>
+              <div className="customer-list-rows">
+                {filteredCustomers.length === 0 && (
+                  <p className="muted">顧客が見つかりません。</p>
+                )}
+                {filteredCustomers.map((customer) => (
+                  <button
+                    key={customer.id}
+                    className="role-item customer-row"
+                    onClick={() => setSelectedCustomerId(customer.id)}
+                  >
+                    <div className="customer-row-main">
+                      <p className="role-name">{customer.name}</p>
+                      <p className="role-meta">{customer.email || "—"}</p>
+                    </div>
+                    <div className="customer-row-meta">
+                      <span className={`chip status-${customer.status.toLowerCase()}`}>
+                        {customer.status}
+                      </span>
+                      <span className="role-meta">{customer.owner?.name || "未割当"}</span>
+                    </div>
+                    <span className="chev">›</span>
                   </button>
-                  <button className="danger" onClick={() => void removeCustomer(selectedCustomer.id)}>
-                    Delete
+                ))}
+              </div>
+              <button className="primary" onClick={openCreateCustomer}>
+                顧客を追加
+              </button>
+            </section>
+          </main>
+        ) : (
+          <main className="main-content">
+            <section className="panel customer-panel-detail">
+              <div className="panel-header">
+                <div className="customer-detail-back">
+                  <button className="ghost" onClick={() => setSelectedCustomerId(null)}>
+                    ← 顧客一覧
                   </button>
+                  <h2>{selectedCustomer?.name ?? ""}</h2>
                 </div>
+                {selectedCustomer && (
+                  <span className={`chip status-${selectedCustomer.status.toLowerCase()}`}>
+                    {selectedCustomer.status}
+                  </span>
+                )}
+              </div>
 
-                <div className="timeline">
-                  <div className="timeline-header">
-                    <h3>Interactions</h3>
-                    <span className="chip">{interactions.length}</span>
+              {selectedCustomer && (
+                <>
+                  <div className="detail-grid">
+                    <div>
+                      <h3>{selectedCustomer.name}</h3>
+                      <p className="muted">{selectedCustomer.email || "No email"}</p>
+                      <p className="muted">{selectedCustomer.phone || "No phone"}</p>
+                    </div>
+                    <div>
+                      <p className="label">Owner</p>
+                      <p>{selectedCustomer.owner?.name || "Unassigned"}</p>
+                      <p className="label">Last updated</p>
+                      <p>{new Date(selectedCustomer.updatedAt).toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="label">Assignees</p>
+                      <p>{selectedCustomer.assignees.map((a) => a.name).join(", ") || "-"}</p>
+                    </div>
                   </div>
-                  <div className="timeline-form">
-                    <select
-                      value={interactionType}
-                      onChange={(event) =>
-                        setInteractionType(event.target.value as Interaction["type"])
-                      }
-                    >
-                      <option value="NOTE">Note</option>
-                      <option value="CALL">Call</option>
-                      <option value="EMAIL">Email</option>
-                      <option value="MEETING">Meeting</option>
-                    </select>
-                    <input
-                      type="datetime-local"
-                      value={interactionDate}
-                      onChange={(event) => setInteractionDate(event.target.value)}
-                    />
-                    <input
-                      value={interactionNote}
-                      onChange={(event) => setInteractionNote(event.target.value)}
-                      placeholder="Write a quick note"
-                    />
-                    <button className="primary" onClick={addInteraction}>
-                      Add
+
+                  <div className="detail-actions">
+                    <button className="ghost" onClick={() => openEditCustomer(selectedCustomer)}>
+                      Edit
+                    </button>
+                    <button className="danger" onClick={() => void removeCustomer(selectedCustomer.id)}>
+                      Delete
                     </button>
                   </div>
-                  <div className="timeline-list">
-                    {interactionLoading && <p className="muted">Loading interactions...</p>}
-                    {!interactionLoading && interactions.length === 0 && (
-                      <p className="muted">No interactions yet.</p>
-                    )}
-                    {interactions.map((interaction) => (
-                      <div key={interaction.id} className="timeline-item">
-                        {editingInteractionId === interaction.id ? (
-                          <div className="timeline-edit">
-                            <div className="timeline-edit-row">
-                              <select
-                                value={editInteractionType}
-                                onChange={(event) =>
-                                  setEditInteractionType(
-                                    event.target.value as Interaction["type"]
-                                  )
-                                }
-                              >
-                                <option value="NOTE">Note</option>
-                                <option value="CALL">Call</option>
-                                <option value="EMAIL">Email</option>
-                                <option value="MEETING">Meeting</option>
-                              </select>
+
+                  <div className="timeline">
+                    <div className="timeline-header">
+                      <h3>Interactions</h3>
+                      <span className="chip">{interactions.length}</span>
+                    </div>
+                    <div className="timeline-form">
+                      <select
+                        value={interactionType}
+                        onChange={(event) =>
+                          setInteractionType(event.target.value as Interaction["type"])
+                        }
+                      >
+                        <option value="NOTE">Note</option>
+                        <option value="CALL">Call</option>
+                        <option value="EMAIL">Email</option>
+                        <option value="MEETING">Meeting</option>
+                      </select>
+                      <input
+                        type="datetime-local"
+                        value={interactionDate}
+                        onChange={(event) => setInteractionDate(event.target.value)}
+                      />
+                      <input
+                        value={interactionNote}
+                        onChange={(event) => setInteractionNote(event.target.value)}
+                        placeholder="Write a quick note"
+                      />
+                      <button className="primary" onClick={addInteraction}>
+                        Add
+                      </button>
+                    </div>
+                    <div className="timeline-list">
+                      {interactionLoading && <p className="muted">Loading interactions...</p>}
+                      {!interactionLoading && interactions.length === 0 && (
+                        <p className="muted">No interactions yet.</p>
+                      )}
+                      {interactions.map((interaction) => (
+                        <div key={interaction.id} className="timeline-item">
+                          {editingInteractionId === interaction.id ? (
+                            <div className="timeline-edit">
+                              <div className="timeline-edit-row">
+                                <select
+                                  value={editInteractionType}
+                                  onChange={(event) =>
+                                    setEditInteractionType(
+                                      event.target.value as Interaction["type"]
+                                    )
+                                  }
+                                >
+                                  <option value="NOTE">Note</option>
+                                  <option value="CALL">Call</option>
+                                  <option value="EMAIL">Email</option>
+                                  <option value="MEETING">Meeting</option>
+                                </select>
+                                <input
+                                  type="datetime-local"
+                                  value={editInteractionDate}
+                                  onChange={(event) => setEditInteractionDate(event.target.value)}
+                                />
+                              </div>
                               <input
-                                type="datetime-local"
-                                value={editInteractionDate}
-                                onChange={(event) => setEditInteractionDate(event.target.value)}
+                                value={editInteractionNote}
+                                onChange={(event) => setEditInteractionNote(event.target.value)}
                               />
-                            </div>
-                            <input
-                              value={editInteractionNote}
-                              onChange={(event) => setEditInteractionNote(event.target.value)}
-                            />
-                            <div className="timeline-actions">
-                              <button className="ghost" onClick={cancelEditInteraction}>
-                                Cancel
-                              </button>
-                              <button className="primary" onClick={saveEditInteraction}>
-                                Save
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div>
-                              <p className="timeline-type">{interaction.type}</p>
-                              <p className="timeline-note">{interaction.note}</p>
-                            </div>
-                            <div className="timeline-meta">
-                              <span>{new Date(interaction.occurredAt).toLocaleString()}</span>
-                              <span>{interaction.user?.name || "Unknown"}</span>
                               <div className="timeline-actions">
-                                <button
-                                  className="ghost"
-                                  onClick={() => startEditInteraction(interaction)}
-                                >
-                                  Edit
+                                <button className="ghost" onClick={cancelEditInteraction}>
+                                  Cancel
                                 </button>
-                                <button
-                                  className="danger"
-                                  onClick={() => deleteInteraction(interaction.id)}
-                                >
-                                  Delete
+                                <button className="primary" onClick={saveEditInteraction}>
+                                  Save
                                 </button>
                               </div>
                             </div>
-                          </>
-                        )}
-                      </div>
-                    ))}
+                          ) : (
+                            <>
+                              <div>
+                                <p className="timeline-type">{interaction.type}</p>
+                                <p className="timeline-note">{interaction.note}</p>
+                              </div>
+                              <div className="timeline-meta">
+                                <span>{new Date(interaction.occurredAt).toLocaleString()}</span>
+                                <span>{interaction.user?.name || "Unknown"}</span>
+                                <div className="timeline-actions">
+                                  <button
+                                    className="ghost"
+                                    onClick={() => startEditInteraction(interaction)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    className="danger"
+                                    onClick={() => deleteInteraction(interaction.id)}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              </>
-            )}
-          </section>
-        </main>
+                </>
+              )}
+            </section>
+          </main>
+        )
       ) : view === "dashboard" ? (
         <DashboardPage token={token} />
       ) : view === "users" && canSeeUsersTab ? (

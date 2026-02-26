@@ -713,3 +713,46 @@ button:disabled {
     padding: 24px 16px 48px;
   }
 }
+
+/* ── Customer list screen ─────────────────────────── */
+.customer-panel-list,
+.customer-panel-detail {
+  max-width: 900px;
+  width: 100%;
+}
+
+.customer-list-rows {
+  display: grid;
+  gap: 10px;
+  overflow: auto;
+}
+
+.customer-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 16px;
+}
+
+.customer-row-main {
+  min-width: 0;
+}
+
+.customer-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ── Customer detail screen ───────────────────────── */
+.customer-detail-back {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.customer-detail-back h2 {
+  margin: 0;
+  font-size: 20px;
+}
