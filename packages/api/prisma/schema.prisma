@@ -50,7 +50,7 @@ model Tenant {
 model User {
   id                String       @id @default(cuid())
   tenantId          String
-  email             String
+  email             String       @unique
   passwordHash      String
   name              String
   status            UserStatus   @default(ACTIVE)
@@ -68,7 +68,6 @@ model User {
   userRoles         UserRole[]
   refreshTokens     RefreshToken[]
 
-  @@unique([tenantId, email])
   @@index([tenantId])
 }
 
