@@ -3,28 +3,20 @@ import type { Dispatch, SetStateAction } from "react";
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
 
 type Props = {
-  tenantId: string;
-  setTenantId: Dispatch<SetStateAction<string>>;
   loginEmail: string;
   setLoginEmail: Dispatch<SetStateAction<string>>;
   loginPassword: string;
   setLoginPassword: Dispatch<SetStateAction<string>>;
-  token: string;
-  setToken: Dispatch<SetStateAction<string>>;
   loggingIn: boolean;
   error: string;
   onLogin: () => void;
 };
 
 export default function LoginPage({
-  tenantId,
-  setTenantId,
   loginEmail,
   setLoginEmail,
   loginPassword,
   setLoginPassword,
-  token,
-  setToken,
   loggingIn,
   error,
   onLogin,
@@ -42,14 +34,6 @@ export default function LoginPage({
           </p>
         </div>
         <div className="token-card">
-          <div>
-            <span className="label">Tenant ID</span>
-            <input
-              value={tenantId}
-              onChange={(event) => setTenantId(event.target.value)}
-              placeholder="Tenant ID"
-            />
-          </div>
           <div>
             <span className="label">Email</span>
             <input
@@ -74,15 +58,6 @@ export default function LoginPage({
             {loggingIn ? "Signing in..." : "Sign in"}
           </button>
           {error && <div className="global-error">{error}</div>}
-          <div className="token-divider">or</div>
-          <div>
-            <span className="label">Access Token</span>
-            <input
-              value={token}
-              onChange={(event) => setToken(event.target.value)}
-              placeholder="Paste JWT access token"
-            />
-          </div>
           <p className="hint">API: {API_BASE}</p>
         </div>
       </header>

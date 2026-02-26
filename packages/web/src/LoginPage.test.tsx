@@ -3,24 +3,19 @@ import { describe, it, expect, vi } from "vitest";
 import LoginPage from "./LoginPage";
 
 const defaultProps = {
-  tenantId: "",
-  setTenantId: vi.fn(),
   loginEmail: "",
   setLoginEmail: vi.fn(),
   loginPassword: "",
   setLoginPassword: vi.fn(),
-  token: "",
-  setToken: vi.fn(),
   loggingIn: false,
   error: "",
   onLogin: vi.fn(),
 };
 
 describe("LoginPage", () => {
-  it("renders tenant ID, email, password inputs and sign-in button", () => {
+  it("renders email, password inputs and sign-in button", () => {
     render(<LoginPage {...defaultProps} />);
 
-    expect(screen.getByPlaceholderText("Tenant ID")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("admin@example.com")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("********")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
