@@ -3,12 +3,16 @@ const bcrypt = require("bcryptjs");
 
 const prisma = new PrismaClient();
 
+const SEED_SYSTEM_TENANT_NAME = "__system__";
 const SEED_TENANT_NAME = process.env.SEED_TENANT_NAME || "テストテナント";
 const SEED_ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || "admin@example.com";
 const SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "ChangeMe123!";
 
 const SEED_TENANT2_NAME = "テストテナント2";
 const SEED_ADMIN2_EMAIL = "admin2@example.com";
+
+const SEED_SUPER_ADMIN_EMAIL = process.env.SEED_SUPER_ADMIN_EMAIL || "superadmin@example.com";
+const SEED_SUPER_ADMIN_PASSWORD = process.env.SEED_SUPER_ADMIN_PASSWORD || "SuperAdmin123!";
 
 const ROLE_NAMES = {
   ADMIN: "ADMIN",
@@ -69,10 +73,16 @@ async function main() {
     });
   }
 
+  // Upsert __system__ tenant and SUPER_ADMIN user
+  const systemTenant = await upsertTenant(SEED_SYSTEM_TENANT_NAME);
+  await upsertSuperAdminUser(systemTenant.id);
+
   const seedTenant = await upsertTenant(SEED_TENANT_NAME);
   const seedTenant2 = await upsertTenant(SEED_TENANT2_NAME);
+
+  // Exclude __system__ tenant from role seeding loop
   const tenants = await prisma.tenant.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, name: { not: SEED_SYSTEM_TENANT_NAME } },
     select: { id: true }
   });
 
@@ -122,6 +132,27 @@ async function upsertTenant(name) {
   return prisma.tenant.create({
     data: { name }
   });
+}
+
+async function upsertSuperAdminUser(tenantId) {
+  const passwordHash = await bcrypt.hash(SEED_SUPER_ADMIN_PASSWORD, 12);
+
+  const existing = await prisma.user.findFirst({
+    where: { email: SEED_SUPER_ADMIN_EMAIL }
+  });
+
+  if (!existing) {
+    await prisma.user.create({
+      data: {
+        tenantId,
+        email: SEED_SUPER_ADMIN_EMAIL,
+        passwordHash,
+        name: "Super Admin",
+        status: "ACTIVE",
+        userType: "SUPER_ADMIN"
+      }
+    });
+  }
 }
 
 async function upsertAdminUser(tenantId, adminRoleId, email, name) {

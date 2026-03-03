@@ -15,6 +15,7 @@ enum UserStatus {
 }
 
 enum UserType {
+  SUPER_ADMIN
   ADMIN
   STANDARD
   PRIVILEGED
