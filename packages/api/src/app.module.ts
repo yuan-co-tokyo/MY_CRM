@@ -9,6 +9,7 @@ import { UsersModule } from "./users/users.module";
 import { GroupsModule } from "./groups/groups.module";
 import { RolesModule } from "./roles/roles.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
+import { AdminModule } from "./admin/admin.module";
 
 @Module({
   imports: [
@@ -19,7 +20,8 @@ import { DashboardModule } from "./dashboard/dashboard.module";
     UsersModule,
     GroupsModule,
     RolesModule,
-    DashboardModule
+    DashboardModule,
+    AdminModule
   ],
   controllers: [AppController],
   providers: [AppService]
