@@ -896,107 +896,138 @@ export default function App() {
                   <div className="customer-detail-content">
                     {customerDetailView === "info" && (
                       <>
-                        <div className="detail-grid">
-                          <div>
-                            <h3>{selectedCustomer.name}</h3>
-                            <p className="muted">{selectedCustomer.email || "No email"}</p>
-                            <p className="muted">{selectedCustomer.phone || "No phone"}</p>
-                            {selectedCustomer.mobilePhone && <p className="muted">携帯: {selectedCustomer.mobilePhone}</p>}
+                        <div className="detail-sections">
+                          {/* 基本情報 */}
+                          <div className="detail-section">
+                            <p className="eyebrow detail-section-title">基本情報</p>
+                            <div className="detail-grid">
+                              <div>
+                                <p className="label">顧客名</p>
+                                <p>{selectedCustomer.name}</p>
+                              </div>
+                              <div>
+                                <p className="label">ステータス</p>
+                                <span className={`chip status-${selectedCustomer.status.toLowerCase()}`}>
+                                  {selectedCustomer.status === "LEAD" ? "リード" : selectedCustomer.status === "ACTIVE" ? "アクティブ" : "非アクティブ"}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="label">個人法人区分</p>
+                                <p>{selectedCustomer.customerCategory ? (selectedCustomer.customerCategory === "INDIVIDUAL" ? "個人" : "法人") : "ー"}</p>
+                              </div>
+                              <div>
+                                <p className="label">性別</p>
+                                <p>{selectedCustomer.gender ? (selectedCustomer.gender === "MALE" ? "男性" : selectedCustomer.gender === "FEMALE" ? "女性" : "その他") : "ー"}</p>
+                              </div>
+                              <div>
+                                <p className="label">生年月日</p>
+                                <p>{selectedCustomer.birthDate ? new Date(selectedCustomer.birthDate).toLocaleDateString("ja-JP") : "ー"}</p>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p className="label">Owner</p>
-                            <p>{selectedCustomer.owner?.name || "Unassigned"}</p>
-                            <p className="label">Last updated</p>
-                            <p>{new Date(selectedCustomer.updatedAt).toLocaleString()}</p>
+
+                          {/* 連絡先 */}
+                          <div className="detail-section">
+                            <p className="eyebrow detail-section-title">連絡先</p>
+                            <div className="detail-grid">
+                              <div>
+                                <p className="label">メールアドレス</p>
+                                <p>{selectedCustomer.email || "ー"}</p>
+                              </div>
+                              <div>
+                                <p className="label">電話番号</p>
+                                <p>{selectedCustomer.phone || "ー"}</p>
+                              </div>
+                              <div>
+                                <p className="label">携帯電話</p>
+                                <p>{selectedCustomer.mobilePhone || "ー"}</p>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p className="label">Assignees</p>
-                            <p>{selectedCustomer.assignees.map((a) => a.name).join(", ") || "-"}</p>
+
+                          {/* 住所 */}
+                          <div className="detail-section">
+                            <p className="eyebrow detail-section-title">住所</p>
+                            <div className="detail-grid">
+                              <div>
+                                <p className="label">郵便番号</p>
+                                <p>{selectedCustomer.postalCode || "ー"}</p>
+                              </div>
+                              <div>
+                                <p className="label">住所</p>
+                                <p>{selectedCustomer.address || "ー"}</p>
+                              </div>
+                            </div>
                           </div>
-                          {(selectedCustomer.customerCategory || selectedCustomer.gender || selectedCustomer.birthDate) && (
-                            <div>
-                              {selectedCustomer.customerCategory && (
-                                <>
-                                  <p className="label">個人法人区分</p>
-                                  <p>{selectedCustomer.customerCategory === "INDIVIDUAL" ? "個人" : "法人"}</p>
-                                </>
-                              )}
-                              {selectedCustomer.gender && (
-                                <>
-                                  <p className="label">性別</p>
-                                  <p>{selectedCustomer.gender === "MALE" ? "男性" : selectedCustomer.gender === "FEMALE" ? "女性" : "その他"}</p>
-                                </>
-                              )}
-                              {selectedCustomer.birthDate && (
-                                <>
-                                  <p className="label">生年月日</p>
-                                  <p>{new Date(selectedCustomer.birthDate).toLocaleDateString()}</p>
-                                </>
-                              )}
+
+                          {/* 勤務先情報 */}
+                          <div className="detail-section">
+                            <p className="eyebrow detail-section-title">勤務先情報</p>
+                            <div className="detail-grid">
+                              <div>
+                                <p className="label">勤務先</p>
+                                <p>{selectedCustomer.workCompany || "ー"}</p>
+                              </div>
+                              <div>
+                                <p className="label">勤務先電話番号</p>
+                                <p>{selectedCustomer.workPhone || "ー"}</p>
+                              </div>
+                              <div>
+                                <p className="label">勤務先メールアドレス</p>
+                                <p>{selectedCustomer.workEmail || "ー"}</p>
+                              </div>
+                              <div>
+                                <p className="label">年収</p>
+                                <p>{selectedCustomer.annualIncome != null ? `${selectedCustomer.annualIncome.toLocaleString()} 円` : "ー"}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 担当情報 */}
+                          <div className="detail-section">
+                            <p className="eyebrow detail-section-title">担当情報</p>
+                            <div className="detail-grid">
+                              <div>
+                                <p className="label">担当者</p>
+                                <p>{selectedCustomer.owner?.name || "未割当"}</p>
+                              </div>
+                              <div>
+                                <p className="label">副担当者</p>
+                                <p>{selectedCustomer.assignees.map((a) => a.name).join("、") || "ー"}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 備考 */}
+                          {selectedCustomer.notes && (
+                            <div className="detail-section">
+                              <p className="eyebrow detail-section-title">備考</p>
+                              <p style={{ whiteSpace: "pre-wrap" }}>{selectedCustomer.notes}</p>
                             </div>
                           )}
-                          {(selectedCustomer.postalCode || selectedCustomer.address) && (
-                            <div>
-                              {selectedCustomer.postalCode && (
-                                <>
-                                  <p className="label">郵便番号</p>
-                                  <p>{selectedCustomer.postalCode}</p>
-                                </>
-                              )}
-                              {selectedCustomer.address && (
-                                <>
-                                  <p className="label">住所</p>
-                                  <p>{selectedCustomer.address}</p>
-                                </>
-                              )}
+
+                          {/* システム情報 */}
+                          <div className="detail-section">
+                            <p className="eyebrow detail-section-title">システム情報</p>
+                            <div className="detail-grid">
+                              <div>
+                                <p className="label">登録日時</p>
+                                <p>{new Date(selectedCustomer.createdAt).toLocaleString("ja-JP")}</p>
+                              </div>
+                              <div>
+                                <p className="label">更新日時</p>
+                                <p>{new Date(selectedCustomer.updatedAt).toLocaleString("ja-JP")}</p>
+                              </div>
                             </div>
-                          )}
-                          {(selectedCustomer.workCompany || selectedCustomer.workPhone || selectedCustomer.workEmail) && (
-                            <div>
-                              {selectedCustomer.workCompany && (
-                                <>
-                                  <p className="label">勤務先</p>
-                                  <p>{selectedCustomer.workCompany}</p>
-                                </>
-                              )}
-                              {selectedCustomer.workPhone && (
-                                <>
-                                  <p className="label">勤務先電話番号</p>
-                                  <p>{selectedCustomer.workPhone}</p>
-                                </>
-                              )}
-                              {selectedCustomer.workEmail && (
-                                <>
-                                  <p className="label">勤務先メールアドレス</p>
-                                  <p>{selectedCustomer.workEmail}</p>
-                                </>
-                              )}
-                            </div>
-                          )}
-                          {(selectedCustomer.annualIncome != null || selectedCustomer.notes) && (
-                            <div>
-                              {selectedCustomer.annualIncome != null && (
-                                <>
-                                  <p className="label">年収</p>
-                                  <p>{selectedCustomer.annualIncome.toLocaleString()} 円</p>
-                                </>
-                              )}
-                              {selectedCustomer.notes && (
-                                <>
-                                  <p className="label">備考</p>
-                                  <p style={{ whiteSpace: "pre-wrap" }}>{selectedCustomer.notes}</p>
-                                </>
-                              )}
-                            </div>
-                          )}
+                          </div>
                         </div>
 
                         <div className="detail-actions">
                           <button className="ghost" onClick={() => openEditCustomer(selectedCustomer)}>
-                            Edit
+                            編集
                           </button>
                           <button className="danger" onClick={() => void removeCustomer(selectedCustomer.id)}>
-                            Delete
+                            削除
                           </button>
                         </div>
                       </>

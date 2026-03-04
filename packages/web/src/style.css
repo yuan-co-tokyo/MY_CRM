@@ -810,3 +810,20 @@ button:disabled {
   border-top: none;
   padding-top: 0;
 }
+
+/* ── Customer detail sections ───────────────────────── */
+.detail-sections {
+  display: grid;
+  gap: 20px;
+}
+
+.detail-section {
+  display: grid;
+  gap: 10px;
+}
+
+.detail-section-title {
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
