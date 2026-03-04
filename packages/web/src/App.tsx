@@ -292,6 +292,15 @@ export default function App() {
     })();
   }, [token]);
 
+  useEffect(() => {
+    if (!permissionCheckDone) return;
+    if (view === "permissions" && !canSeePermissionsTab) {
+      setView("dashboard");
+    } else if (view === "users" && !canSeeUsersTab) {
+      setView("dashboard");
+    }
+  }, [permissionCheckDone, canSeePermissionsTab, canSeeUsersTab, view]);
+
   function openCreateUser() {
     setUserForm({
       name: "",
@@ -686,19 +695,6 @@ export default function App() {
 
       {error && <div className="global-error">{error}</div>}
 
-      {permissionCheckDone && view === "permissions" && !canSeePermissionsTab && (
-        <div className="guard">
-          <h3>Access denied</h3>
-          <p>このユーザーには権限管理の閲覧権限がありません。</p>
-        </div>
-      )}
-
-      {permissionCheckDone && view === "users" && !canSeeUsersTab && (
-        <div className="guard">
-          <h3>Access denied</h3>
-          <p>このユーザーにはユーザー管理の閲覧権限がありません。</p>
-        </div>
-      )}
 
       {view === "permissions" && canSeePermissionsTab ? (
         <main className="layout">
