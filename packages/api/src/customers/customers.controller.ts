@@ -24,7 +24,18 @@ const createCustomerSchema = z.object({
   phone: z.string().min(1).optional().nullable(),
   status: z.enum(["LEAD", "ACTIVE", "INACTIVE"]).optional(),
   ownerUserId: z.string().optional().nullable(),
-  assigneeUserIds: z.array(z.string()).optional().default([])
+  assigneeUserIds: z.array(z.string()).optional().default([]),
+  customerCategory: z.enum(["INDIVIDUAL", "CORPORATE"]).optional().nullable(),
+  gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional().nullable(),
+  birthDate: z.string().optional().nullable(),
+  postalCode: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  mobilePhone: z.string().optional().nullable(),
+  workCompany: z.string().optional().nullable(),
+  workPhone: z.string().optional().nullable(),
+  workEmail: z.string().email().optional().nullable(),
+  annualIncome: z.number().int().optional().nullable(),
+  notes: z.string().optional().nullable(),
 });
 
 const updateCustomerSchema = z.object({
@@ -33,7 +44,18 @@ const updateCustomerSchema = z.object({
   phone: z.string().min(1).optional().nullable(),
   status: z.enum(["LEAD", "ACTIVE", "INACTIVE"]).optional(),
   ownerUserId: z.string().optional().nullable(),
-  assigneeUserIds: z.array(z.string()).optional()
+  assigneeUserIds: z.array(z.string()).optional(),
+  customerCategory: z.enum(["INDIVIDUAL", "CORPORATE"]).optional().nullable(),
+  gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional().nullable(),
+  birthDate: z.string().optional().nullable(),
+  postalCode: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  mobilePhone: z.string().optional().nullable(),
+  workCompany: z.string().optional().nullable(),
+  workPhone: z.string().optional().nullable(),
+  workEmail: z.string().email().optional().nullable(),
+  annualIncome: z.number().int().optional().nullable(),
+  notes: z.string().optional().nullable(),
 });
 
 const listQuerySchema = z.object({

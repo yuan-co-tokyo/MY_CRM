@@ -25,6 +25,17 @@ type Customer = {
   status: "LEAD" | "ACTIVE" | "INACTIVE";
   owner?: { id: string; name: string; email: string } | null;
   assignees: { id: string; name: string; email: string }[];
+  customerCategory?: "INDIVIDUAL" | "CORPORATE" | null;
+  gender?: "MALE" | "FEMALE" | "OTHER" | null;
+  birthDate?: string | null;
+  postalCode?: string | null;
+  address?: string | null;
+  mobilePhone?: string | null;
+  workCompany?: string | null;
+  workPhone?: string | null;
+  workEmail?: string | null;
+  annualIncome?: number | null;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -76,7 +87,18 @@ const emptyCustomer = {
   phone: "",
   status: "LEAD" as const,
   ownerUserId: "",
-  assigneeUserIds: [] as string[]
+  assigneeUserIds: [] as string[],
+  customerCategory: "" as "" | "INDIVIDUAL" | "CORPORATE",
+  gender: "" as "" | "MALE" | "FEMALE" | "OTHER",
+  birthDate: "",
+  postalCode: "",
+  address: "",
+  mobilePhone: "",
+  workCompany: "",
+  workPhone: "",
+  workEmail: "",
+  annualIncome: "" as "" | number,
+  notes: ""
 };
 
 export default function App() {
@@ -531,7 +553,18 @@ export default function App() {
       phone: customer.phone ?? "",
       status: customer.status,
       ownerUserId: customer.owner?.id ?? "",
-      assigneeUserIds: customer.assignees.map((assignee) => assignee.id)
+      assigneeUserIds: customer.assignees.map((assignee) => assignee.id),
+      customerCategory: customer.customerCategory ?? "",
+      gender: customer.gender ?? "",
+      birthDate: customer.birthDate ? customer.birthDate.slice(0, 10) : "",
+      postalCode: customer.postalCode ?? "",
+      address: customer.address ?? "",
+      mobilePhone: customer.mobilePhone ?? "",
+      workCompany: customer.workCompany ?? "",
+      workPhone: customer.workPhone ?? "",
+      workEmail: customer.workEmail ?? "",
+      annualIncome: customer.annualIncome ?? "",
+      notes: customer.notes ?? ""
     });
     setCustomerFormMode("edit");
     setCustomerFormOpen(true);
@@ -545,7 +578,18 @@ export default function App() {
       phone: customerForm.phone || null,
       status: customerForm.status,
       ownerUserId: customerForm.ownerUserId || null,
-      assigneeUserIds: customerForm.assigneeUserIds
+      assigneeUserIds: customerForm.assigneeUserIds,
+      customerCategory: customerForm.customerCategory || null,
+      gender: customerForm.gender || null,
+      birthDate: customerForm.birthDate || null,
+      postalCode: customerForm.postalCode || null,
+      address: customerForm.address || null,
+      mobilePhone: customerForm.mobilePhone || null,
+      workCompany: customerForm.workCompany || null,
+      workPhone: customerForm.workPhone || null,
+      workEmail: customerForm.workEmail || null,
+      annualIncome: customerForm.annualIncome === "" ? null : Number(customerForm.annualIncome),
+      notes: customerForm.notes || null
     };
 
     try {
@@ -857,6 +901,7 @@ export default function App() {
                             <h3>{selectedCustomer.name}</h3>
                             <p className="muted">{selectedCustomer.email || "No email"}</p>
                             <p className="muted">{selectedCustomer.phone || "No phone"}</p>
+                            {selectedCustomer.mobilePhone && <p className="muted">携帯: {selectedCustomer.mobilePhone}</p>}
                           </div>
                           <div>
                             <p className="label">Owner</p>
@@ -868,6 +913,82 @@ export default function App() {
                             <p className="label">Assignees</p>
                             <p>{selectedCustomer.assignees.map((a) => a.name).join(", ") || "-"}</p>
                           </div>
+                          {(selectedCustomer.customerCategory || selectedCustomer.gender || selectedCustomer.birthDate) && (
+                            <div>
+                              {selectedCustomer.customerCategory && (
+                                <>
+                                  <p className="label">個人法人区分</p>
+                                  <p>{selectedCustomer.customerCategory === "INDIVIDUAL" ? "個人" : "法人"}</p>
+                                </>
+                              )}
+                              {selectedCustomer.gender && (
+                                <>
+                                  <p className="label">性別</p>
+                                  <p>{selectedCustomer.gender === "MALE" ? "男性" : selectedCustomer.gender === "FEMALE" ? "女性" : "その他"}</p>
+                                </>
+                              )}
+                              {selectedCustomer.birthDate && (
+                                <>
+                                  <p className="label">生年月日</p>
+                                  <p>{new Date(selectedCustomer.birthDate).toLocaleDateString()}</p>
+                                </>
+                              )}
+                            </div>
+                          )}
+                          {(selectedCustomer.postalCode || selectedCustomer.address) && (
+                            <div>
+                              {selectedCustomer.postalCode && (
+                                <>
+                                  <p className="label">郵便番号</p>
+                                  <p>{selectedCustomer.postalCode}</p>
+                                </>
+                              )}
+                              {selectedCustomer.address && (
+                                <>
+                                  <p className="label">住所</p>
+                                  <p>{selectedCustomer.address}</p>
+                                </>
+                              )}
+                            </div>
+                          )}
+                          {(selectedCustomer.workCompany || selectedCustomer.workPhone || selectedCustomer.workEmail) && (
+                            <div>
+                              {selectedCustomer.workCompany && (
+                                <>
+                                  <p className="label">勤務先</p>
+                                  <p>{selectedCustomer.workCompany}</p>
+                                </>
+                              )}
+                              {selectedCustomer.workPhone && (
+                                <>
+                                  <p className="label">勤務先電話番号</p>
+                                  <p>{selectedCustomer.workPhone}</p>
+                                </>
+                              )}
+                              {selectedCustomer.workEmail && (
+                                <>
+                                  <p className="label">勤務先メールアドレス</p>
+                                  <p>{selectedCustomer.workEmail}</p>
+                                </>
+                              )}
+                            </div>
+                          )}
+                          {(selectedCustomer.annualIncome != null || selectedCustomer.notes) && (
+                            <div>
+                              {selectedCustomer.annualIncome != null && (
+                                <>
+                                  <p className="label">年収</p>
+                                  <p>{selectedCustomer.annualIncome.toLocaleString()} 円</p>
+                                </>
+                              )}
+                              {selectedCustomer.notes && (
+                                <>
+                                  <p className="label">備考</p>
+                                  <p style={{ whiteSpace: "pre-wrap" }}>{selectedCustomer.notes}</p>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         <div className="detail-actions">
@@ -1145,6 +1266,118 @@ export default function App() {
                   })}
                 </div>
               </div>
+              <label>
+                個人法人区分
+                <select
+                  value={customerForm.customerCategory}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, customerCategory: event.target.value as "" | "INDIVIDUAL" | "CORPORATE" }))
+                  }
+                >
+                  <option value="">未選択</option>
+                  <option value="INDIVIDUAL">個人</option>
+                  <option value="CORPORATE">法人</option>
+                </select>
+              </label>
+              <label>
+                性別
+                <select
+                  value={customerForm.gender}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, gender: event.target.value as "" | "MALE" | "FEMALE" | "OTHER" }))
+                  }
+                >
+                  <option value="">未選択</option>
+                  <option value="MALE">男性</option>
+                  <option value="FEMALE">女性</option>
+                  <option value="OTHER">その他</option>
+                </select>
+              </label>
+              <label>
+                生年月日
+                <input
+                  type="date"
+                  value={customerForm.birthDate}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, birthDate: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                郵便番号
+                <input
+                  value={customerForm.postalCode}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, postalCode: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                住所
+                <input
+                  value={customerForm.address}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, address: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                携帯電話番号
+                <input
+                  value={customerForm.mobilePhone}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, mobilePhone: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                勤務先
+                <input
+                  value={customerForm.workCompany}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, workCompany: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                勤務先電話番号
+                <input
+                  value={customerForm.workPhone}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, workPhone: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                勤務先メールアドレス
+                <input
+                  type="email"
+                  value={customerForm.workEmail}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, workEmail: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                年収
+                <input
+                  type="number"
+                  value={customerForm.annualIncome}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, annualIncome: event.target.value === "" ? "" : Number(event.target.value) }))
+                  }
+                />
+              </label>
+              <label>
+                備考
+                <textarea
+                  value={customerForm.notes}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, notes: event.target.value }))
+                  }
+                  rows={3}
+                />
+              </label>
             </div>
             <div className="modal-actions">
               <button className="ghost" onClick={() => setCustomerFormOpen(false)}>
