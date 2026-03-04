@@ -296,8 +296,10 @@ export default function App() {
     if (!permissionCheckDone) return;
     if (view === "permissions" && !canSeePermissionsTab) {
       setView("dashboard");
+      setError("");
     } else if (view === "users" && !canSeeUsersTab) {
       setView("dashboard");
+      setError("");
     }
   }, [permissionCheckDone, canSeePermissionsTab, canSeeUsersTab, view]);
 
