@@ -1182,7 +1182,7 @@ export default function App() {
           <div className="modal-card">
             <h3>{customerFormMode === "create" ? "Create customer" : "Edit customer"}</h3>
             <div className="form-grid">
-              <label>
+              <label className="form-full">
                 Name
                 <input
                   value={customerForm.name}
@@ -1241,7 +1241,7 @@ export default function App() {
                   ))}
                 </select>
               </label>
-              <div>
+              <div className="form-full">
                 <p className="label">Assignees</p>
                 <div className="assignee-list">
                   {users.map((user) => {
@@ -1312,7 +1312,7 @@ export default function App() {
                   }
                 />
               </label>
-              <label>
+              <label className="form-full">
                 住所
                 <input
                   value={customerForm.address}
@@ -1368,7 +1368,7 @@ export default function App() {
                   }
                 />
               </label>
-              <label>
+              <label className="form-full">
                 備考
                 <textarea
                   value={customerForm.notes}
