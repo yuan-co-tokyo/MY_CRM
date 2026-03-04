@@ -54,6 +54,17 @@ export class CustomersService {
       status?: "LEAD" | "ACTIVE" | "INACTIVE";
       ownerUserId?: string | null;
       assigneeUserIds?: string[];
+      customerCategory?: "INDIVIDUAL" | "CORPORATE" | null;
+      gender?: "MALE" | "FEMALE" | "OTHER" | null;
+      birthDate?: string | null;
+      postalCode?: string | null;
+      address?: string | null;
+      mobilePhone?: string | null;
+      workCompany?: string | null;
+      workPhone?: string | null;
+      workEmail?: string | null;
+      annualIncome?: number | null;
+      notes?: string | null;
     }
   ) {
     await this.ensureUsersInTenant(user.tenantId, [input.ownerUserId, ...(input.assigneeUserIds ?? [])]);
@@ -66,6 +77,17 @@ export class CustomersService {
         phone: input.phone ?? null,
         status: input.status ?? "LEAD",
         ownerUserId: input.ownerUserId ?? null,
+        customerCategory: input.customerCategory ?? null,
+        gender: input.gender ?? null,
+        birthDate: input.birthDate ? new Date(input.birthDate) : null,
+        postalCode: input.postalCode ?? null,
+        address: input.address ?? null,
+        mobilePhone: input.mobilePhone ?? null,
+        workCompany: input.workCompany ?? null,
+        workPhone: input.workPhone ?? null,
+        workEmail: input.workEmail ?? null,
+        annualIncome: input.annualIncome ?? null,
+        notes: input.notes ?? null,
         assignees: {
           create: (input.assigneeUserIds ?? []).map((assigneeUserId) => ({
             userId: assigneeUserId
@@ -88,6 +110,17 @@ export class CustomersService {
       status?: "LEAD" | "ACTIVE" | "INACTIVE";
       ownerUserId?: string | null;
       assigneeUserIds?: string[];
+      customerCategory?: "INDIVIDUAL" | "CORPORATE" | null;
+      gender?: "MALE" | "FEMALE" | "OTHER" | null;
+      birthDate?: string | null;
+      postalCode?: string | null;
+      address?: string | null;
+      mobilePhone?: string | null;
+      workCompany?: string | null;
+      workPhone?: string | null;
+      workEmail?: string | null;
+      annualIncome?: number | null;
+      notes?: string | null;
     }
   ) {
     const customer = await this.prisma.customer.findFirst({
@@ -126,7 +159,18 @@ export class CustomersService {
           email: input.email === undefined ? customer.email : input.email,
           phone: input.phone === undefined ? customer.phone : input.phone,
           status: input.status ?? customer.status,
-          ownerUserId: input.ownerUserId === undefined ? customer.ownerUserId : input.ownerUserId
+          ownerUserId: input.ownerUserId === undefined ? customer.ownerUserId : input.ownerUserId,
+          customerCategory: input.customerCategory === undefined ? customer.customerCategory : input.customerCategory,
+          gender: input.gender === undefined ? customer.gender : input.gender,
+          birthDate: input.birthDate === undefined ? customer.birthDate : (input.birthDate ? new Date(input.birthDate) : null),
+          postalCode: input.postalCode === undefined ? customer.postalCode : input.postalCode,
+          address: input.address === undefined ? customer.address : input.address,
+          mobilePhone: input.mobilePhone === undefined ? customer.mobilePhone : input.mobilePhone,
+          workCompany: input.workCompany === undefined ? customer.workCompany : input.workCompany,
+          workPhone: input.workPhone === undefined ? customer.workPhone : input.workPhone,
+          workEmail: input.workEmail === undefined ? customer.workEmail : input.workEmail,
+          annualIncome: input.annualIncome === undefined ? customer.annualIncome : input.annualIncome,
+          notes: input.notes === undefined ? customer.notes : input.notes,
         },
         include: CUSTOMER_INCLUDE
       });
@@ -176,6 +220,17 @@ export class CustomersService {
       status: customer.status,
       owner: customer.owner,
       assignees: customer.assignees.map((assignee: { user: any }) => assignee.user),
+      customerCategory: customer.customerCategory,
+      gender: customer.gender,
+      birthDate: customer.birthDate,
+      postalCode: customer.postalCode,
+      address: customer.address,
+      mobilePhone: customer.mobilePhone,
+      workCompany: customer.workCompany,
+      workPhone: customer.workPhone,
+      workEmail: customer.workEmail,
+      annualIncome: customer.annualIncome,
+      notes: customer.notes,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt
     };

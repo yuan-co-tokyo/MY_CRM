@@ -25,6 +25,17 @@ type Customer = {
   status: "LEAD" | "ACTIVE" | "INACTIVE";
   owner?: { id: string; name: string; email: string } | null;
   assignees: { id: string; name: string; email: string }[];
+  customerCategory?: "INDIVIDUAL" | "CORPORATE" | null;
+  gender?: "MALE" | "FEMALE" | "OTHER" | null;
+  birthDate?: string | null;
+  postalCode?: string | null;
+  address?: string | null;
+  mobilePhone?: string | null;
+  workCompany?: string | null;
+  workPhone?: string | null;
+  workEmail?: string | null;
+  annualIncome?: number | null;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -76,7 +87,18 @@ const emptyCustomer = {
   phone: "",
   status: "LEAD" as const,
   ownerUserId: "",
-  assigneeUserIds: [] as string[]
+  assigneeUserIds: [] as string[],
+  customerCategory: "" as "" | "INDIVIDUAL" | "CORPORATE",
+  gender: "" as "" | "MALE" | "FEMALE" | "OTHER",
+  birthDate: "",
+  postalCode: "",
+  address: "",
+  mobilePhone: "",
+  workCompany: "",
+  workPhone: "",
+  workEmail: "",
+  annualIncome: "" as "" | number,
+  notes: ""
 };
 
 export default function App() {
@@ -531,7 +553,18 @@ export default function App() {
       phone: customer.phone ?? "",
       status: customer.status,
       ownerUserId: customer.owner?.id ?? "",
-      assigneeUserIds: customer.assignees.map((assignee) => assignee.id)
+      assigneeUserIds: customer.assignees.map((assignee) => assignee.id),
+      customerCategory: customer.customerCategory ?? "",
+      gender: customer.gender ?? "",
+      birthDate: customer.birthDate ? customer.birthDate.slice(0, 10) : "",
+      postalCode: customer.postalCode ?? "",
+      address: customer.address ?? "",
+      mobilePhone: customer.mobilePhone ?? "",
+      workCompany: customer.workCompany ?? "",
+      workPhone: customer.workPhone ?? "",
+      workEmail: customer.workEmail ?? "",
+      annualIncome: customer.annualIncome ?? "",
+      notes: customer.notes ?? ""
     });
     setCustomerFormMode("edit");
     setCustomerFormOpen(true);
@@ -545,7 +578,18 @@ export default function App() {
       phone: customerForm.phone || null,
       status: customerForm.status,
       ownerUserId: customerForm.ownerUserId || null,
-      assigneeUserIds: customerForm.assigneeUserIds
+      assigneeUserIds: customerForm.assigneeUserIds,
+      customerCategory: customerForm.customerCategory || null,
+      gender: customerForm.gender || null,
+      birthDate: customerForm.birthDate || null,
+      postalCode: customerForm.postalCode || null,
+      address: customerForm.address || null,
+      mobilePhone: customerForm.mobilePhone || null,
+      workCompany: customerForm.workCompany || null,
+      workPhone: customerForm.workPhone || null,
+      workEmail: customerForm.workEmail || null,
+      annualIncome: customerForm.annualIncome === "" ? null : Number(customerForm.annualIncome),
+      notes: customerForm.notes || null
     };
 
     try {
@@ -852,30 +896,138 @@ export default function App() {
                   <div className="customer-detail-content">
                     {customerDetailView === "info" && (
                       <>
-                        <div className="detail-grid">
-                          <div>
-                            <h3>{selectedCustomer.name}</h3>
-                            <p className="muted">{selectedCustomer.email || "No email"}</p>
-                            <p className="muted">{selectedCustomer.phone || "No phone"}</p>
+                        <div className="detail-sections">
+                          {/* 基本情報 */}
+                          <div className="detail-section">
+                            <p className="eyebrow detail-section-title">基本情報</p>
+                            <div className="detail-grid">
+                              <div>
+                                <p className="label">顧客名</p>
+                                <p>{selectedCustomer.name}</p>
+                              </div>
+                              <div>
+                                <p className="label">ステータス</p>
+                                <span className={`chip status-${selectedCustomer.status.toLowerCase()}`}>
+                                  {selectedCustomer.status === "LEAD" ? "リード" : selectedCustomer.status === "ACTIVE" ? "アクティブ" : "非アクティブ"}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="label">個人法人区分</p>
+                                <p>{selectedCustomer.customerCategory ? (selectedCustomer.customerCategory === "INDIVIDUAL" ? "個人" : "法人") : "ー"}</p>
+                              </div>
+                              <div>
+                                <p className="label">性別</p>
+                                <p>{selectedCustomer.gender ? (selectedCustomer.gender === "MALE" ? "男性" : selectedCustomer.gender === "FEMALE" ? "女性" : "その他") : "ー"}</p>
+                              </div>
+                              <div>
+                                <p className="label">生年月日</p>
+                                <p>{selectedCustomer.birthDate ? new Date(selectedCustomer.birthDate).toLocaleDateString("ja-JP") : "ー"}</p>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p className="label">Owner</p>
-                            <p>{selectedCustomer.owner?.name || "Unassigned"}</p>
-                            <p className="label">Last updated</p>
-                            <p>{new Date(selectedCustomer.updatedAt).toLocaleString()}</p>
+
+                          {/* 連絡先 */}
+                          <div className="detail-section">
+                            <p className="eyebrow detail-section-title">連絡先</p>
+                            <div className="detail-grid">
+                              <div>
+                                <p className="label">メールアドレス</p>
+                                <p>{selectedCustomer.email || "ー"}</p>
+                              </div>
+                              <div>
+                                <p className="label">電話番号</p>
+                                <p>{selectedCustomer.phone || "ー"}</p>
+                              </div>
+                              <div>
+                                <p className="label">携帯電話</p>
+                                <p>{selectedCustomer.mobilePhone || "ー"}</p>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p className="label">Assignees</p>
-                            <p>{selectedCustomer.assignees.map((a) => a.name).join(", ") || "-"}</p>
+
+                          {/* 住所 */}
+                          <div className="detail-section">
+                            <p className="eyebrow detail-section-title">住所</p>
+                            <div className="detail-grid">
+                              <div>
+                                <p className="label">郵便番号</p>
+                                <p>{selectedCustomer.postalCode || "ー"}</p>
+                              </div>
+                              <div>
+                                <p className="label">住所</p>
+                                <p>{selectedCustomer.address || "ー"}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 勤務先情報 */}
+                          <div className="detail-section">
+                            <p className="eyebrow detail-section-title">勤務先情報</p>
+                            <div className="detail-grid">
+                              <div>
+                                <p className="label">勤務先</p>
+                                <p>{selectedCustomer.workCompany || "ー"}</p>
+                              </div>
+                              <div>
+                                <p className="label">勤務先電話番号</p>
+                                <p>{selectedCustomer.workPhone || "ー"}</p>
+                              </div>
+                              <div>
+                                <p className="label">勤務先メールアドレス</p>
+                                <p>{selectedCustomer.workEmail || "ー"}</p>
+                              </div>
+                              <div>
+                                <p className="label">年収</p>
+                                <p>{selectedCustomer.annualIncome != null ? `${selectedCustomer.annualIncome.toLocaleString()} 円` : "ー"}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 担当情報 */}
+                          <div className="detail-section">
+                            <p className="eyebrow detail-section-title">担当情報</p>
+                            <div className="detail-grid">
+                              <div>
+                                <p className="label">担当者</p>
+                                <p>{selectedCustomer.owner?.name || "未割当"}</p>
+                              </div>
+                              <div>
+                                <p className="label">副担当者</p>
+                                <p>{selectedCustomer.assignees.map((a) => a.name).join("、") || "ー"}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 備考 */}
+                          {selectedCustomer.notes && (
+                            <div className="detail-section">
+                              <p className="eyebrow detail-section-title">備考</p>
+                              <p style={{ whiteSpace: "pre-wrap" }}>{selectedCustomer.notes}</p>
+                            </div>
+                          )}
+
+                          {/* システム情報 */}
+                          <div className="detail-section">
+                            <p className="eyebrow detail-section-title">システム情報</p>
+                            <div className="detail-grid">
+                              <div>
+                                <p className="label">登録日時</p>
+                                <p>{new Date(selectedCustomer.createdAt).toLocaleString("ja-JP")}</p>
+                              </div>
+                              <div>
+                                <p className="label">更新日時</p>
+                                <p>{new Date(selectedCustomer.updatedAt).toLocaleString("ja-JP")}</p>
+                              </div>
+                            </div>
                           </div>
                         </div>
 
                         <div className="detail-actions">
                           <button className="ghost" onClick={() => openEditCustomer(selectedCustomer)}>
-                            Edit
+                            編集
                           </button>
                           <button className="danger" onClick={() => void removeCustomer(selectedCustomer.id)}>
-                            Delete
+                            削除
                           </button>
                         </div>
                       </>
@@ -1061,7 +1213,7 @@ export default function App() {
           <div className="modal-card">
             <h3>{customerFormMode === "create" ? "Create customer" : "Edit customer"}</h3>
             <div className="form-grid">
-              <label>
+              <label className="form-full">
                 Name
                 <input
                   value={customerForm.name}
@@ -1120,7 +1272,7 @@ export default function App() {
                   ))}
                 </select>
               </label>
-              <div>
+              <div className="form-full">
                 <p className="label">Assignees</p>
                 <div className="assignee-list">
                   {users.map((user) => {
@@ -1145,6 +1297,118 @@ export default function App() {
                   })}
                 </div>
               </div>
+              <label>
+                個人法人区分
+                <select
+                  value={customerForm.customerCategory}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, customerCategory: event.target.value as "" | "INDIVIDUAL" | "CORPORATE" }))
+                  }
+                >
+                  <option value="">未選択</option>
+                  <option value="INDIVIDUAL">個人</option>
+                  <option value="CORPORATE">法人</option>
+                </select>
+              </label>
+              <label>
+                性別
+                <select
+                  value={customerForm.gender}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, gender: event.target.value as "" | "MALE" | "FEMALE" | "OTHER" }))
+                  }
+                >
+                  <option value="">未選択</option>
+                  <option value="MALE">男性</option>
+                  <option value="FEMALE">女性</option>
+                  <option value="OTHER">その他</option>
+                </select>
+              </label>
+              <label>
+                生年月日
+                <input
+                  type="date"
+                  value={customerForm.birthDate}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, birthDate: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                郵便番号
+                <input
+                  value={customerForm.postalCode}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, postalCode: event.target.value }))
+                  }
+                />
+              </label>
+              <label className="form-full">
+                住所
+                <input
+                  value={customerForm.address}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, address: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                携帯電話番号
+                <input
+                  value={customerForm.mobilePhone}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, mobilePhone: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                勤務先
+                <input
+                  value={customerForm.workCompany}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, workCompany: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                勤務先電話番号
+                <input
+                  value={customerForm.workPhone}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, workPhone: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                勤務先メールアドレス
+                <input
+                  type="email"
+                  value={customerForm.workEmail}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, workEmail: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                年収
+                <input
+                  type="number"
+                  value={customerForm.annualIncome}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, annualIncome: event.target.value === "" ? "" : Number(event.target.value) }))
+                  }
+                />
+              </label>
+              <label className="form-full">
+                備考
+                <textarea
+                  value={customerForm.notes}
+                  onChange={(event) =>
+                    setCustomerForm((prev) => ({ ...prev, notes: event.target.value }))
+                  }
+                  rows={3}
+                />
+              </label>
             </div>
             <div className="modal-actions">
               <button className="ghost" onClick={() => setCustomerFormOpen(false)}>

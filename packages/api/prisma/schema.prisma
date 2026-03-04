@@ -21,6 +21,17 @@ enum UserType {
   PRIVILEGED
 }
 
+enum CustomerCategory {
+  INDIVIDUAL
+  CORPORATE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
 enum CustomerStatus {
   LEAD
   ACTIVE
@@ -106,6 +117,17 @@ model Customer {
   phone        String?
   status       CustomerStatus @default(LEAD)
   ownerUserId  String?
+  customerCategory CustomerCategory?
+  gender           Gender?
+  birthDate        DateTime?
+  postalCode       String?
+  address          String?
+  mobilePhone      String?
+  workCompany      String?
+  workPhone        String?
+  workEmail        String?
+  annualIncome     Int?
+  notes            String?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   deletedAt    DateTime?

@@ -608,25 +608,45 @@ button:disabled {
   inset: 0;
   background: rgba(31, 31, 31, 0.32);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 10;
   padding: 20px;
+  overflow-y: auto;
 }
 
 .modal-card {
   background: #fff;
   border-radius: 20px;
   padding: 24px;
-  width: min(520px, 100%);
+  width: min(760px, calc(100vw - 40px));
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
   display: grid;
   gap: 16px;
   box-shadow: 0 20px 50px var(--shadow);
+  align-self: center;
+  margin: auto;
 }
 
 .form-grid {
   display: grid;
   gap: 12px;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.form-full {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 600px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-full {
+    grid-column: 1;
+  }
 }
 
 .assignee-list {
@@ -789,4 +809,21 @@ button:disabled {
   margin-top: 0;
   border-top: none;
   padding-top: 0;
+}
+
+/* ── Customer detail sections ───────────────────────── */
+.detail-sections {
+  display: grid;
+  gap: 20px;
+}
+
+.detail-section {
+  display: grid;
+  gap: 10px;
+}
+
+.detail-section-title {
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
 }
