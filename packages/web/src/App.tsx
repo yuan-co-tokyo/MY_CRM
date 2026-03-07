@@ -1209,10 +1209,10 @@ export default function App() {
       {customerFormOpen && (
         <div className="modal">
           <div className="modal-card">
-            <h3>{customerFormMode === "create" ? "Create customer" : "Edit customer"}</h3>
+            <h3>{customerFormMode === "create" ? "顧客を作成" : "顧客を編集"}</h3>
             <div className="form-grid">
               <label className="form-full">
-                Name
+                顧客名
                 <input
                   value={customerForm.name}
                   onChange={(event) =>
@@ -1221,7 +1221,7 @@ export default function App() {
                 />
               </label>
               <label>
-                Email
+                メールアドレス
                 <input
                   value={customerForm.email}
                   onChange={(event) =>
@@ -1230,7 +1230,7 @@ export default function App() {
                 />
               </label>
               <label>
-                Phone
+                電話番号
                 <input
                   value={customerForm.phone}
                   onChange={(event) =>
@@ -1239,7 +1239,7 @@ export default function App() {
                 />
               </label>
               <label>
-                Status
+                ステータス
                 <select
                   value={customerForm.status}
                   onChange={(event) =>
@@ -1249,20 +1249,20 @@ export default function App() {
                     }))
                   }
                 >
-                  <option value="LEAD">Lead</option>
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
+                  <option value="LEAD">リード</option>
+                  <option value="ACTIVE">アクティブ</option>
+                  <option value="INACTIVE">非アクティブ</option>
                 </select>
               </label>
               <label>
-                Owner
+                担当者
                 <select
                   value={customerForm.ownerUserId}
                   onChange={(event) =>
                     setCustomerForm((prev) => ({ ...prev, ownerUserId: event.target.value }))
                   }
                 >
-                  <option value="">Unassigned</option>
+                  <option value="">未割当</option>
                   {users.map((user) => (
                     <option key={user.id} value={user.id}>
                       {user.name} ({user.email})
@@ -1271,7 +1271,7 @@ export default function App() {
                 </select>
               </label>
               <div className="form-full">
-                <p className="label">Assignees</p>
+                <p className="label">副担当者</p>
                 <div className="assignee-list">
                   {users.map((user) => {
                     const checked = customerForm.assigneeUserIds.includes(user.id);
