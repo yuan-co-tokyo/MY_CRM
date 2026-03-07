@@ -8,7 +8,9 @@ const CUSTOMER_INCLUDE = {
     select: {
       user: { select: { id: true, name: true, email: true } }
     }
-  }
+  },
+  individualCustomer: true,
+  corporateCustomer: true,
 };
 
 @Injectable()
@@ -78,21 +80,30 @@ export class CustomersService {
         status: input.status ?? "LEAD",
         ownerUserId: input.ownerUserId ?? null,
         customerCategory: input.customerCategory ?? null,
-        gender: input.gender ?? null,
-        birthDate: input.birthDate ? new Date(input.birthDate) : null,
         postalCode: input.postalCode ?? null,
         address: input.address ?? null,
-        mobilePhone: input.mobilePhone ?? null,
-        workCompany: input.workCompany ?? null,
-        workPhone: input.workPhone ?? null,
-        workEmail: input.workEmail ?? null,
-        annualIncome: input.annualIncome ?? null,
         notes: input.notes ?? null,
         assignees: {
           create: (input.assigneeUserIds ?? []).map((assigneeUserId) => ({
             userId: assigneeUserId
           }))
-        }
+        },
+        ...(input.customerCategory === "INDIVIDUAL" ? {
+          individualCustomer: {
+            create: {
+              gender:       input.gender       ?? null,
+              birthDate:    input.birthDate    ? new Date(input.birthDate) : null,
+              mobilePhone:  input.mobilePhone  ?? null,
+              workCompany:  input.workCompany  ?? null,
+              workPhone:    input.workPhone    ?? null,
+              workEmail:    input.workEmail    ?? null,
+              annualIncome: input.annualIncome ?? null,
+            }
+          }
+        } : {}),
+        ...(input.customerCategory === "CORPORATE" ? {
+          corporateCustomer: { create: {} }
+        } : {}),
       },
       include: CUSTOMER_INCLUDE
     });
@@ -152,25 +163,60 @@ export class CustomersService {
         }
       }
 
+      const newCategory = input.customerCategory === undefined
+        ? customer.customerCategory
+        : input.customerCategory;
+
+      if (newCategory === "INDIVIDUAL") {
+        await tx.individualCustomer.upsert({
+          where: { customerId: customer.id },
+          create: {
+            customerId:   customer.id,
+            gender:       input.gender       ?? null,
+            birthDate:    input.birthDate    ? new Date(input.birthDate) : null,
+            mobilePhone:  input.mobilePhone  ?? null,
+            workCompany:  input.workCompany  ?? null,
+            workPhone:    input.workPhone    ?? null,
+            workEmail:    input.workEmail    ?? null,
+            annualIncome: input.annualIncome ?? null,
+          },
+          update: {
+            ...(input.gender       !== undefined ? { gender:       input.gender       ?? null } : {}),
+            ...(input.birthDate    !== undefined ? { birthDate:    input.birthDate ? new Date(input.birthDate) : null } : {}),
+            ...(input.mobilePhone  !== undefined ? { mobilePhone:  input.mobilePhone  ?? null } : {}),
+            ...(input.workCompany  !== undefined ? { workCompany:  input.workCompany  ?? null } : {}),
+            ...(input.workPhone    !== undefined ? { workPhone:    input.workPhone    ?? null } : {}),
+            ...(input.workEmail    !== undefined ? { workEmail:    input.workEmail    ?? null } : {}),
+            ...(input.annualIncome !== undefined ? { annualIncome: input.annualIncome ?? null } : {}),
+          }
+        });
+        await tx.corporateCustomer.deleteMany({ where: { customerId: customer.id } });
+
+      } else if (newCategory === "CORPORATE") {
+        await tx.corporateCustomer.upsert({
+          where: { customerId: customer.id },
+          create: { customerId: customer.id },
+          update: {}
+        });
+        await tx.individualCustomer.deleteMany({ where: { customerId: customer.id } });
+
+      } else {
+        await tx.individualCustomer.deleteMany({ where: { customerId: customer.id } });
+        await tx.corporateCustomer.deleteMany({ where: { customerId: customer.id } });
+      }
+
       return tx.customer.update({
         where: { id: customer.id },
         data: {
-          name: input.name ?? customer.name,
-          email: input.email === undefined ? customer.email : input.email,
-          phone: input.phone === undefined ? customer.phone : input.phone,
-          status: input.status ?? customer.status,
-          ownerUserId: input.ownerUserId === undefined ? customer.ownerUserId : input.ownerUserId,
+          name:             input.name             ?? customer.name,
+          email:            input.email            === undefined ? customer.email            : input.email,
+          phone:            input.phone            === undefined ? customer.phone            : input.phone,
+          status:           input.status           ?? customer.status,
+          ownerUserId:      input.ownerUserId      === undefined ? customer.ownerUserId      : input.ownerUserId,
           customerCategory: input.customerCategory === undefined ? customer.customerCategory : input.customerCategory,
-          gender: input.gender === undefined ? customer.gender : input.gender,
-          birthDate: input.birthDate === undefined ? customer.birthDate : (input.birthDate ? new Date(input.birthDate) : null),
-          postalCode: input.postalCode === undefined ? customer.postalCode : input.postalCode,
-          address: input.address === undefined ? customer.address : input.address,
-          mobilePhone: input.mobilePhone === undefined ? customer.mobilePhone : input.mobilePhone,
-          workCompany: input.workCompany === undefined ? customer.workCompany : input.workCompany,
-          workPhone: input.workPhone === undefined ? customer.workPhone : input.workPhone,
-          workEmail: input.workEmail === undefined ? customer.workEmail : input.workEmail,
-          annualIncome: input.annualIncome === undefined ? customer.annualIncome : input.annualIncome,
-          notes: input.notes === undefined ? customer.notes : input.notes,
+          postalCode:       input.postalCode       === undefined ? customer.postalCode       : input.postalCode,
+          address:          input.address          === undefined ? customer.address          : input.address,
+          notes:            input.notes            === undefined ? customer.notes            : input.notes,
         },
         include: CUSTOMER_INCLUDE
       });
@@ -211,6 +257,7 @@ export class CustomersService {
   }
 
   private toResponse(customer: any) {
+    const ind = customer.individualCustomer;
     return {
       id: customer.id,
       tenantId: customer.tenantId,
@@ -221,16 +268,17 @@ export class CustomersService {
       owner: customer.owner,
       assignees: customer.assignees.map((assignee: { user: any }) => assignee.user),
       customerCategory: customer.customerCategory,
-      gender: customer.gender,
-      birthDate: customer.birthDate,
       postalCode: customer.postalCode,
       address: customer.address,
-      mobilePhone: customer.mobilePhone,
-      workCompany: customer.workCompany,
-      workPhone: customer.workPhone,
-      workEmail: customer.workEmail,
-      annualIncome: customer.annualIncome,
       notes: customer.notes,
+      // Individual-specific fields — sourced from IndividualCustomer sub-table
+      gender:       ind?.gender       ?? null,
+      birthDate:    ind?.birthDate    ?? null,
+      mobilePhone:  ind?.mobilePhone  ?? null,
+      workCompany:  ind?.workCompany  ?? null,
+      workPhone:    ind?.workPhone    ?? null,
+      workEmail:    ind?.workEmail    ?? null,
+      annualIncome: ind?.annualIncome ?? null,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt
     };
