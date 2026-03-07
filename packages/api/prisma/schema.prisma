@@ -110,36 +110,50 @@ model UserGroup {
 }
 
 model Customer {
-  id           String         @id @default(cuid())
-  tenantId     String
-  name         String
-  email        String?
-  phone        String?
-  status       CustomerStatus @default(LEAD)
-  ownerUserId  String?
+  id               String            @id @default(cuid())
+  tenantId         String
+  name             String
+  email            String?
+  phone            String?
+  status           CustomerStatus    @default(LEAD)
+  ownerUserId      String?
   customerCategory CustomerCategory?
-  gender           Gender?
-  birthDate        DateTime?
   postalCode       String?
   address          String?
-  mobilePhone      String?
-  workCompany      String?
-  workPhone        String?
-  workEmail        String?
-  annualIncome     Int?
   notes            String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  deletedAt    DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deletedAt        DateTime?
 
-  tenant       Tenant         @relation(fields: [tenantId], references: [id])
-  owner        User?          @relation("CustomerOwner", fields: [ownerUserId], references: [id])
-  assignees    CustomerAssignee[]
-  interactions Interaction[]
+  tenant             Tenant              @relation(fields: [tenantId], references: [id])
+  owner              User?               @relation("CustomerOwner", fields: [ownerUserId], references: [id])
+  assignees          CustomerAssignee[]
+  interactions       Interaction[]
+  individualCustomer IndividualCustomer?
+  corporateCustomer  CorporateCustomer?
 
   @@unique([tenantId, email])
   @@index([tenantId])
   @@index([ownerUserId])
+}
+
+model IndividualCustomer {
+  customerId   String    @id
+  gender       Gender?
+  birthDate    DateTime?
+  mobilePhone  String?
+  workCompany  String?
+  workPhone    String?
+  workEmail    String?
+  annualIncome Int?
+
+  customer     Customer  @relation(fields: [customerId], references: [id])
+}
+
+model CorporateCustomer {
+  customerId String   @id
+
+  customer   Customer @relation(fields: [customerId], references: [id])
 }
 
 model CustomerAssignee {
