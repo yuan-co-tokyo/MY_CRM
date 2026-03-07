@@ -59,7 +59,7 @@ type Interaction = {
   createdAt: string;
 };
 
-type ViewKey = "permissions" | "customers" | "users" | "dashboard";
+type ViewKey = "permissions" | "individual-customers" | "corporate-customers" | "users" | "dashboard";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
 
@@ -207,7 +207,9 @@ export default function App() {
 
   const filteredCustomers = useMemo(() => {
     const query = customerQuery.trim().toLowerCase();
+    const targetCategory = view === "individual-customers" ? "INDIVIDUAL" : "CORPORATE";
     return customers.filter((customer) => {
+      const matchesCategory = customer.customerCategory === targetCategory;
       const matchesQuery =
         !query ||
         [customer.name, customer.email ?? "", customer.phone ?? ""]
@@ -216,9 +218,9 @@ export default function App() {
           .includes(query);
       const matchesStatus =
         customerStatusFilter === "ALL" || customer.status === customerStatusFilter;
-      return matchesQuery && matchesStatus;
+      return matchesCategory && matchesQuery && matchesStatus;
     });
-  }, [customerQuery, customerStatusFilter, customers]);
+  }, [customerQuery, customerStatusFilter, customers, view]);
 
   const filteredUsers = useMemo(() => {
     const query = userQuery.trim().toLowerCase();
@@ -552,7 +554,8 @@ export default function App() {
   }
 
   function openCreateCustomer() {
-    setCustomerForm({ ...emptyCustomer });
+    const category = view === "individual-customers" ? "INDIVIDUAL" : view === "corporate-customers" ? "CORPORATE" : "";
+    setCustomerForm({ ...emptyCustomer, customerCategory: category as "" | "INDIVIDUAL" | "CORPORATE" });
     setCustomerFormMode("create");
     setCustomerFormOpen(true);
   }
@@ -673,10 +676,16 @@ export default function App() {
               </button>
             )}
             <button
-              className={`sidebar-item ${view === "customers" ? "active" : ""}`}
-              onClick={() => { setView("customers"); setSelectedCustomerId(null); }}
+              className={`sidebar-item ${view === "individual-customers" ? "active" : ""}`}
+              onClick={() => { setView("individual-customers"); setSelectedCustomerId(null); setCustomerQuery(""); setCustomerStatusFilter("ALL"); }}
             >
-              顧客
+              個人顧客
+            </button>
+            <button
+              className={`sidebar-item ${view === "corporate-customers" ? "active" : ""}`}
+              onClick={() => { setView("corporate-customers"); setSelectedCustomerId(null); setCustomerQuery(""); setCustomerStatusFilter("ALL"); }}
+            >
+              法人顧客
             </button>
             {canSeeUsersTab && (
               <button
@@ -799,12 +808,12 @@ export default function App() {
             </div>
           </section>
         </main>
-      ) : view === "customers" ? (
+      ) : view === "individual-customers" || view === "corporate-customers" ? (
         selectedCustomerId === null ? (
           <main className="main-content">
             <section className="panel customer-panel-list">
               <div className="panel-header">
-                <h2>顧客一覧</h2>
+                <h2>{view === "individual-customers" ? "個人顧客一覧" : "法人顧客一覧"}</h2>
                 <span className="chip">{filteredCustomers.length}</span>
               </div>
               <div className="toolbar">
@@ -858,7 +867,7 @@ export default function App() {
               <div className="panel-header">
                 <div className="customer-detail-back">
                   <button className="ghost" onClick={() => setSelectedCustomerId(null)}>
-                    ← 顧客一覧
+                    {view === "individual-customers" ? "← 個人顧客一覧" : "← 法人顧客一覧"}
                   </button>
                   <h2>{selectedCustomer?.name ?? ""}</h2>
                 </div>
