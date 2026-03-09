@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import "./style.css";
 import LoginPage from "./LoginPage";
 import DashboardPage from "./DashboardPage";
@@ -38,6 +38,29 @@ type Customer = {
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
+  householdId?: string | null;
+  parentCorporateId?: string | null;
+  parentCorporate?: { id: string; name: string } | null;
+  subsidiaries?: { id: string; name: string }[] | null;
+};
+
+type Household = {
+  id: string;
+  name: string;
+  postalCode: string | null;
+  address: string | null;
+  phone: string | null;
+  members: { id: string; name: string }[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+type Employment = {
+  employmentId: string;
+  customer: { id: string; name: string; email: string | null };
+  jobTitle: string | null;
+  department: string | null;
+  createdAt: string;
 };
 
 type User = {
@@ -59,7 +82,7 @@ type Interaction = {
   createdAt: string;
 };
 
-type ViewKey = "permissions" | "customers" | "users" | "dashboard";
+type ViewKey = "permissions" | "individual-customers" | "corporate-customers" | "users" | "dashboard" | "households";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
 
@@ -101,6 +124,590 @@ const emptyCustomer = {
   notes: ""
 };
 
+function HouseholdsView({ token }: { token: string }) {
+  const [households, setHouseholds] = useState<Household[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: "", postalCode: "", address: "", phone: "" });
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [allIndividuals, setAllIndividuals] = useState<Customer[]>([]);
+  const [addMemberCustomerId, setAddMemberCustomerId] = useState("");
+  const [memberError, setMemberError] = useState<string | null>(null);
+
+  const selected = households.find((h) => h.id === selectedId) ?? null;
+
+  const load = useCallback(async () => {
+    const res = await fetch(`${API_BASE}/households`, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) setHouseholds(await res.json());
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleCreate = async () => {
+    setCreateError(null);
+    const res = await fetch(`${API_BASE}/households`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: createForm.name,
+        postalCode: createForm.postalCode || null,
+        address: createForm.address || null,
+        phone: createForm.phone || null
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      setCreateError((err as { message?: string }).message ?? "作成に失敗しました");
+      return;
+    }
+    setShowCreate(false);
+    setCreateForm({ name: "", postalCode: "", address: "", phone: "" });
+    await load();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("この世帯を削除しますか？")) return;
+    await fetch(`${API_BASE}/households/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (selectedId === id) setSelectedId(null);
+    await load();
+  };
+
+  const openAddMember = async () => {
+    const res = await fetch(`${API_BASE}/customers?customerCategory=INDIVIDUAL`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const all: Customer[] = await res.json();
+      setAllIndividuals(all.filter((c) => !c.householdId));
+    }
+    setAddMemberCustomerId("");
+    setMemberError(null);
+    setShowAddMember(true);
+  };
+
+  const handleAddMember = async () => {
+    if (!selectedId || !addMemberCustomerId) return;
+    setMemberError(null);
+    const res = await fetch(`${API_BASE}/households/${selectedId}/members`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ customerId: addMemberCustomerId })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      setMemberError((err as { message?: string }).message ?? "追加に失敗しました");
+      return;
+    }
+    setShowAddMember(false);
+    await load();
+  };
+
+  const handleRemoveMember = async (customerId: string) => {
+    if (!selectedId) return;
+    await fetch(`${API_BASE}/households/${selectedId}/members/${customerId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    await load();
+  };
+
+  return (
+    <div className="flex h-full">
+      {/* Left: list */}
+      <div className="w-72 border-r border-gray-200 flex flex-col">
+        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="font-semibold text-gray-800">世帯一覧</h2>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+          >
+            + 追加
+          </button>
+        </div>
+        <div className="overflow-y-auto flex-1">
+          {households.length === 0 && <p className="p-4 text-sm text-gray-500">世帯がありません</p>}
+          {households.map((h) => (
+            <div
+              key={h.id}
+              onClick={() => setSelectedId(h.id)}
+              className={`p-3 cursor-pointer border-b border-gray-100 hover:bg-gray-50 ${selectedId === h.id ? "bg-blue-50" : ""}`}
+            >
+              <div className="font-medium text-sm text-gray-800">{h.name}</div>
+              <div className="text-xs text-gray-500">{h.members.length}人</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Right: detail */}
+      <div className="flex-1 p-6 overflow-y-auto">
+        {!selected ? (
+          <p className="text-gray-500">世帯を選択してください</p>
+        ) : (
+          <>
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-800">{selected.name}</h2>
+                {selected.postalCode && <p className="text-sm text-gray-600">〒{selected.postalCode}</p>}
+                {selected.address && <p className="text-sm text-gray-600">{selected.address}</p>}
+                {selected.phone && <p className="text-sm text-gray-600">{selected.phone}</p>}
+              </div>
+              <button
+                onClick={() => handleDelete(selected.id)}
+                className="text-sm text-red-600 hover:underline"
+              >
+                削除
+              </button>
+            </div>
+
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-semibold text-gray-700">メンバー</h3>
+              <button
+                onClick={openAddMember}
+                className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+              >
+                + メンバー追加
+              </button>
+            </div>
+
+            {selected.members.length === 0 ? (
+              <p className="text-sm text-gray-500">メンバーがいません</p>
+            ) : (
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-2 text-gray-600 font-medium">名前</th>
+                    <th className="text-right py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selected.members.map((m) => (
+                    <tr key={m.id} className="border-b border-gray-100">
+                      <td className="py-2">{m.name}</td>
+                      <td className="py-2 text-right">
+                        <button
+                          onClick={() => handleRemoveMember(m.id)}
+                          className="text-xs text-red-600 hover:underline"
+                        >
+                          解除
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Create modal */}
+      {showCreate && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">世帯を追加</h3>
+            {createError && <p className="text-red-600 text-sm mb-3">{createError}</p>}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">世帯名 *</label>
+                <input
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                  value={createForm.name}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">郵便番号</label>
+                <input
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                  value={createForm.postalCode}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, postalCode: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">住所</label>
+                <input
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                  value={createForm.address}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, address: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">電話番号</label>
+                <input
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                  value={createForm.phone}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => { setShowCreate(false); setCreateError(null); }}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={!createForm.name}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              >
+                作成
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add member modal */}
+      {showAddMember && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">メンバーを追加</h3>
+            {memberError && <p className="text-red-600 text-sm mb-3">{memberError}</p>}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">個人顧客</label>
+              <select
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                value={addMemberCustomerId}
+                onChange={(e) => setAddMemberCustomerId(e.target.value)}
+              >
+                <option value="">-- 選択してください --</option>
+                {allIndividuals.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => { setShowAddMember(false); setMemberError(null); }}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleAddMember}
+                disabled={!addMemberCustomerId}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              >
+                追加
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmployeesTab({ customerId, token }: { customerId: string; token: string }) {
+  const [employees, setEmployees] = useState<Employment[]>([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [allIndividuals, setAllIndividuals] = useState<Customer[]>([]);
+  const [addForm, setAddForm] = useState({ individualCustomerId: "", jobTitle: "", department: "" });
+  const [addError, setAddError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await apiFetch<Employment[]>(`/customers/${customerId}/employees`, token);
+      setEmployees(res);
+    } catch {
+      // ignore
+    }
+  }, [customerId, token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openAdd = async () => {
+    try {
+      const all = await apiFetch<Customer[]>("/customers?customerCategory=INDIVIDUAL", token);
+      setAllIndividuals(all);
+    } catch {
+      setAllIndividuals([]);
+    }
+    setAddForm({ individualCustomerId: "", jobTitle: "", department: "" });
+    setAddError(null);
+    setShowAdd(true);
+  };
+
+  const handleAdd = async () => {
+    if (!addForm.individualCustomerId) return;
+    setAddError(null);
+    try {
+      await apiFetch(`/customers/${customerId}/employees`, token, {
+        method: "POST",
+        body: JSON.stringify({
+          individualCustomerId: addForm.individualCustomerId,
+          jobTitle: addForm.jobTitle || null,
+          department: addForm.department || null
+        })
+      });
+      setShowAdd(false);
+      await load();
+    } catch (err: any) {
+      setAddError(err.message ?? "追加に失敗しました");
+    }
+  };
+
+  const handleRemove = async (employmentId: string) => {
+    try {
+      await apiFetch(`/customers/${customerId}/employees/${employmentId}`, token, { method: "DELETE" });
+      await load();
+    } catch {
+      // ignore
+    }
+  };
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-semibold text-gray-700">従業員</h3>
+        <button
+          onClick={openAdd}
+          className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+        >
+          + 追加
+        </button>
+      </div>
+      {employees.length === 0 ? (
+        <p className="text-sm text-gray-500">従業員がいません</p>
+      ) : (
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="border-b border-gray-200">
+              <th className="text-left py-2 text-gray-600 font-medium">名前</th>
+              <th className="text-left py-2 text-gray-600 font-medium">メール</th>
+              <th className="text-left py-2 text-gray-600 font-medium">役職</th>
+              <th className="text-left py-2 text-gray-600 font-medium">部署</th>
+              <th className="text-right py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {employees.map((emp) => (
+              <tr key={emp.employmentId} className="border-b border-gray-100">
+                <td className="py-2">{emp.customer.name}</td>
+                <td className="py-2">{emp.customer.email ?? "ー"}</td>
+                <td className="py-2">{emp.jobTitle ?? "ー"}</td>
+                <td className="py-2">{emp.department ?? "ー"}</td>
+                <td className="py-2 text-right">
+                  <button
+                    onClick={() => handleRemove(emp.employmentId)}
+                    className="text-xs text-red-600 hover:underline"
+                  >
+                    解除
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {showAdd && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">従業員を追加</h3>
+            {addError && <p className="text-red-600 text-sm mb-3">{addError}</p>}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">個人顧客 *</label>
+                <select
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                  value={addForm.individualCustomerId}
+                  onChange={(e) => setAddForm((f) => ({ ...f, individualCustomerId: e.target.value }))}
+                >
+                  <option value="">-- 選択してください --</option>
+                  {allIndividuals.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">役職</label>
+                <input
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                  value={addForm.jobTitle}
+                  onChange={(e) => setAddForm((f) => ({ ...f, jobTitle: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">部署</label>
+                <input
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                  value={addForm.department}
+                  onChange={(e) => setAddForm((f) => ({ ...f, department: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => { setShowAdd(false); setAddError(null); }}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleAdd}
+                disabled={!addForm.individualCustomerId}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              >
+                追加
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CorporateGroupTab({ customerId, token, allCorporates }: { customerId: string; token: string; allCorporates: Customer[] }) {
+  const [subsidiaries, setSubsidiaries] = useState<Customer[]>([]);
+  const [parentCorporate, setParentCorporate] = useState<{ id: string; name: string } | null>(null);
+  const [showAddSub, setShowAddSub] = useState(false);
+  const [addSubId, setAddSubId] = useState("");
+  const [addSubError, setAddSubError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await apiFetch<Customer[]>(`/customers/${customerId}/subsidiaries`, token);
+      setSubsidiaries(res);
+    } catch {
+      setSubsidiaries([]);
+    }
+    try {
+      const self = await apiFetch<Customer>(`/customers/${customerId}`, token);
+      setParentCorporate(self.parentCorporate ?? null);
+    } catch {
+      setParentCorporate(null);
+    }
+  }, [customerId, token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleAddSubsidiary = async () => {
+    if (!addSubId) return;
+    setAddSubError(null);
+    try {
+      await apiFetch(`/customers/${addSubId}`, token, {
+        method: "PATCH",
+        body: JSON.stringify({ parentCorporateId: customerId })
+      });
+      setShowAddSub(false);
+      await load();
+    } catch (err: any) {
+      setAddSubError(err.message ?? "追加に失敗しました");
+    }
+  };
+
+  const handleRemoveSubsidiary = async (subId: string) => {
+    try {
+      await apiFetch(`/customers/${subId}`, token, {
+        method: "PATCH",
+        body: JSON.stringify({ parentCorporateId: null })
+      });
+      await load();
+    } catch {
+      // ignore
+    }
+  };
+
+  const availableForSub = allCorporates.filter(
+    (c) => c.id !== customerId && !subsidiaries.find((s) => s.id === c.id)
+  );
+
+  return (
+    <div>
+      {parentCorporate && (
+        <div className="mb-6">
+          <h3 className="font-semibold text-gray-700 mb-2">親会社</h3>
+          <p className="text-sm text-gray-800">{parentCorporate.name}</p>
+        </div>
+      )}
+
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-semibold text-gray-700">子会社</h3>
+        <button
+          onClick={() => { setAddSubId(""); setAddSubError(null); setShowAddSub(true); }}
+          className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+        >
+          + 追加
+        </button>
+      </div>
+
+      {subsidiaries.length === 0 ? (
+        <p className="text-sm text-gray-500">子会社がありません</p>
+      ) : (
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="border-b border-gray-200">
+              <th className="text-left py-2 text-gray-600 font-medium">会社名</th>
+              <th className="text-right py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {subsidiaries.map((sub) => (
+              <tr key={sub.id} className="border-b border-gray-100">
+                <td className="py-2">{sub.name}</td>
+                <td className="py-2 text-right">
+                  <button
+                    onClick={() => handleRemoveSubsidiary(sub.id)}
+                    className="text-xs text-red-600 hover:underline"
+                  >
+                    解除
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {showAddSub && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">子会社を追加</h3>
+            {addSubError && <p className="text-red-600 text-sm mb-3">{addSubError}</p>}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">法人顧客 *</label>
+              <select
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                value={addSubId}
+                onChange={(e) => setAddSubId(e.target.value)}
+              >
+                <option value="">-- 選択してください --</option>
+                {availableForSub.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => { setShowAddSub(false); setAddSubError(null); }}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleAddSubsidiary}
+                disabled={!addSubId}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              >
+                追加
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem("crm_token") || "");
   const [loginEmail, setLoginEmail] = useState(() => localStorage.getItem("crm_email") || "");
@@ -123,7 +730,7 @@ export default function App() {
   const [customerQuery, setCustomerQuery] = useState("");
   const [customerStatusFilter, setCustomerStatusFilter] = useState<string>("ALL");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [customerDetailView, setCustomerDetailView] = useState<"info" | "interactions">("info");
+  const [customerDetailView, setCustomerDetailView] = useState<"info" | "interactions" | "employees" | "group">("info");
   const [customerForm, setCustomerForm] = useState({ ...emptyCustomer });
   const [customerFormMode, setCustomerFormMode] = useState<"create" | "edit">("create");
   const [customerFormOpen, setCustomerFormOpen] = useState(false);
@@ -207,7 +814,9 @@ export default function App() {
 
   const filteredCustomers = useMemo(() => {
     const query = customerQuery.trim().toLowerCase();
+    const targetCategory = view === "individual-customers" ? "INDIVIDUAL" : "CORPORATE";
     return customers.filter((customer) => {
+      const matchesCategory = customer.customerCategory === targetCategory;
       const matchesQuery =
         !query ||
         [customer.name, customer.email ?? "", customer.phone ?? ""]
@@ -216,9 +825,9 @@ export default function App() {
           .includes(query);
       const matchesStatus =
         customerStatusFilter === "ALL" || customer.status === customerStatusFilter;
-      return matchesQuery && matchesStatus;
+      return matchesCategory && matchesQuery && matchesStatus;
     });
-  }, [customerQuery, customerStatusFilter, customers]);
+  }, [customerQuery, customerStatusFilter, customers, view]);
 
   const filteredUsers = useMemo(() => {
     const query = userQuery.trim().toLowerCase();
@@ -233,6 +842,8 @@ export default function App() {
       return matchesQuery && matchesStatus && matchesType;
     });
   }, [userQuery, userStatusFilter, userTypeFilter, users]);
+
+  const corporateCustomers = useMemo(() => customers.filter((c) => c.customerCategory === "CORPORATE"), [customers]);
 
   async function loadPermissions() {
     setError("");
@@ -552,7 +1163,8 @@ export default function App() {
   }
 
   function openCreateCustomer() {
-    setCustomerForm({ ...emptyCustomer });
+    const category = view === "individual-customers" ? "INDIVIDUAL" : view === "corporate-customers" ? "CORPORATE" : "";
+    setCustomerForm({ ...emptyCustomer, customerCategory: category as "" | "INDIVIDUAL" | "CORPORATE" });
     setCustomerFormMode("create");
     setCustomerFormOpen(true);
   }
@@ -673,10 +1285,22 @@ export default function App() {
               </button>
             )}
             <button
-              className={`sidebar-item ${view === "customers" ? "active" : ""}`}
-              onClick={() => { setView("customers"); setSelectedCustomerId(null); }}
+              className={`sidebar-item ${view === "individual-customers" ? "active" : ""}`}
+              onClick={() => { setView("individual-customers"); setSelectedCustomerId(null); setCustomerQuery(""); setCustomerStatusFilter("ALL"); }}
             >
-              顧客
+              個人顧客
+            </button>
+            <button
+              className={`sidebar-item ${view === "households" ? "active" : ""}`}
+              onClick={() => setView("households")}
+            >
+              世帯
+            </button>
+            <button
+              className={`sidebar-item ${view === "corporate-customers" ? "active" : ""}`}
+              onClick={() => { setView("corporate-customers"); setSelectedCustomerId(null); setCustomerQuery(""); setCustomerStatusFilter("ALL"); }}
+            >
+              法人顧客
             </button>
             {canSeeUsersTab && (
               <button
@@ -799,12 +1423,12 @@ export default function App() {
             </div>
           </section>
         </main>
-      ) : view === "customers" ? (
+      ) : view === "individual-customers" || view === "corporate-customers" ? (
         selectedCustomerId === null ? (
           <main className="main-content">
             <section className="panel customer-panel-list">
               <div className="panel-header">
-                <h2>顧客一覧</h2>
+                <h2>{view === "individual-customers" ? "個人顧客一覧" : "法人顧客一覧"}</h2>
                 <span className="chip">{filteredCustomers.length}</span>
               </div>
               <div className="toolbar">
@@ -858,7 +1482,7 @@ export default function App() {
               <div className="panel-header">
                 <div className="customer-detail-back">
                   <button className="ghost" onClick={() => setSelectedCustomerId(null)}>
-                    ← 顧客一覧
+                    {view === "individual-customers" ? "← 個人顧客一覧" : "← 法人顧客一覧"}
                   </button>
                   <h2>{selectedCustomer?.name ?? ""}</h2>
                 </div>
@@ -888,6 +1512,22 @@ export default function App() {
                         {interactions.length}
                       </span>
                     </button>
+                    {view === "corporate-customers" && (
+                      <>
+                        <button
+                          className={`sidebar-item${customerDetailView === "employees" ? " active" : ""}`}
+                          onClick={() => setCustomerDetailView("employees")}
+                        >
+                          従業員
+                        </button>
+                        <button
+                          className={`sidebar-item${customerDetailView === "group" ? " active" : ""}`}
+                          onClick={() => setCustomerDetailView("group")}
+                        >
+                          グループ企業
+                        </button>
+                      </>
+                    )}
                   </nav>
 
                   {/* ── 右コンテンツ ── */}
@@ -980,6 +1620,19 @@ export default function App() {
                               </div>
                             </div>
                           </div>
+
+                          {/* 世帯情報 (個人顧客のみ) */}
+                          {view === "individual-customers" && selectedCustomer.householdId && (
+                            <div className="detail-section">
+                              <p className="eyebrow detail-section-title">世帯</p>
+                              <div className="detail-grid">
+                                <div>
+                                  <p className="label">世帯ID</p>
+                                  <p>{selectedCustomer.householdId}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
                           {/* 担当情報 */}
                           <div className="detail-section">
@@ -1134,12 +1787,22 @@ export default function App() {
                         </div>
                       </div>
                     )}
+                    {customerDetailView === "employees" && view === "corporate-customers" && (
+                      <EmployeesTab customerId={selectedCustomer.id} token={token} />
+                    )}
+                    {customerDetailView === "group" && view === "corporate-customers" && (
+                      <CorporateGroupTab customerId={selectedCustomer.id} token={token} allCorporates={corporateCustomers} />
+                    )}
                   </div>
                 </div>
               )}
             </section>
           </main>
         )
+      ) : view === "households" ? (
+        <main className="main-content" style={{ height: "100%" }}>
+          <HouseholdsView token={token} />
+        </main>
       ) : view === "dashboard" ? (
         <DashboardPage token={token} />
       ) : view === "users" && canSeeUsersTab ? (
@@ -1209,10 +1872,10 @@ export default function App() {
       {customerFormOpen && (
         <div className="modal">
           <div className="modal-card">
-            <h3>{customerFormMode === "create" ? "Create customer" : "Edit customer"}</h3>
+            <h3>{customerFormMode === "create" ? "顧客を作成" : "顧客を編集"}</h3>
             <div className="form-grid">
               <label className="form-full">
-                Name
+                顧客名
                 <input
                   value={customerForm.name}
                   onChange={(event) =>
@@ -1221,7 +1884,7 @@ export default function App() {
                 />
               </label>
               <label>
-                Email
+                メールアドレス
                 <input
                   value={customerForm.email}
                   onChange={(event) =>
@@ -1230,7 +1893,7 @@ export default function App() {
                 />
               </label>
               <label>
-                Phone
+                電話番号
                 <input
                   value={customerForm.phone}
                   onChange={(event) =>
@@ -1239,7 +1902,7 @@ export default function App() {
                 />
               </label>
               <label>
-                Status
+                ステータス
                 <select
                   value={customerForm.status}
                   onChange={(event) =>
@@ -1249,20 +1912,20 @@ export default function App() {
                     }))
                   }
                 >
-                  <option value="LEAD">Lead</option>
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
+                  <option value="LEAD">リード</option>
+                  <option value="ACTIVE">アクティブ</option>
+                  <option value="INACTIVE">非アクティブ</option>
                 </select>
               </label>
               <label>
-                Owner
+                担当者
                 <select
                   value={customerForm.ownerUserId}
                   onChange={(event) =>
                     setCustomerForm((prev) => ({ ...prev, ownerUserId: event.target.value }))
                   }
                 >
-                  <option value="">Unassigned</option>
+                  <option value="">未割当</option>
                   {users.map((user) => (
                     <option key={user.id} value={user.id}>
                       {user.name} ({user.email})
@@ -1271,7 +1934,7 @@ export default function App() {
                 </select>
               </label>
               <div className="form-full">
-                <p className="label">Assignees</p>
+                <p className="label">副担当者</p>
                 <div className="assignee-list">
                   {users.map((user) => {
                     const checked = customerForm.assigneeUserIds.includes(user.id);
