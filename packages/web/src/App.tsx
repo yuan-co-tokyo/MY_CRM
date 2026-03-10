@@ -628,7 +628,7 @@ function EmployeesTab({ customerId, token }: { customerId: string; token: string
 }
 
 function CorporateGroupTab({ customerId, token, allCorporates }: { customerId: string; token: string; allCorporates: Customer[] }) {
-  const [subsidiaries, setSubsidiaries] = useState<Customer[]>([]);
+  const [subsidiaries, setSubsidiaries] = useState<{ id: string; name: string }[]>([]);
   const [parentCorporate, setParentCorporate] = useState<{ id: string; name: string } | null>(null);
   const [showAddSub, setShowAddSub] = useState(false);
   const [addSubId, setAddSubId] = useState("");
@@ -636,15 +636,13 @@ function CorporateGroupTab({ customerId, token, allCorporates }: { customerId: s
 
   const load = useCallback(async () => {
     try {
-      const res = await apiFetch<Customer[]>(`/customers/${customerId}/subsidiaries`, token);
-      setSubsidiaries(res);
+      const res = await apiFetch<{ parentCorporate: { id: string; name: string } | null; subsidiaries: { id: string; name: string }[] }>(
+        `/customers/${customerId}/subsidiaries`, token
+      );
+      setSubsidiaries(res.subsidiaries);
+      setParentCorporate(res.parentCorporate);
     } catch {
       setSubsidiaries([]);
-    }
-    try {
-      const self = await apiFetch<Customer>(`/customers/${customerId}`, token);
-      setParentCorporate(self.parentCorporate ?? null);
-    } catch {
       setParentCorporate(null);
     }
   }, [customerId, token]);
@@ -655,9 +653,9 @@ function CorporateGroupTab({ customerId, token, allCorporates }: { customerId: s
     if (!addSubId) return;
     setAddSubError(null);
     try {
-      await apiFetch(`/customers/${addSubId}`, token, {
-        method: "PATCH",
-        body: JSON.stringify({ parentCorporateId: customerId })
+      await apiFetch(`/customers/${customerId}/subsidiaries`, token, {
+        method: "POST",
+        body: JSON.stringify({ subsidiaryCustomerId: addSubId })
       });
       setShowAddSub(false);
       await load();
@@ -668,10 +666,7 @@ function CorporateGroupTab({ customerId, token, allCorporates }: { customerId: s
 
   const handleRemoveSubsidiary = async (subId: string) => {
     try {
-      await apiFetch(`/customers/${subId}`, token, {
-        method: "PATCH",
-        body: JSON.stringify({ parentCorporateId: null })
-      });
+      await apiFetch(`/customers/${customerId}/subsidiaries/${subId}`, token, { method: "DELETE" });
       await load();
     } catch {
       // ignore
@@ -683,89 +678,90 @@ function CorporateGroupTab({ customerId, token, allCorporates }: { customerId: s
   );
 
   return (
-    <div>
+    <>
       {parentCorporate && (
-        <div className="mb-6">
-          <h3 className="font-semibold text-gray-700 mb-2">親会社</h3>
-          <p className="text-sm text-gray-800">{parentCorporate.name}</p>
+        <div className="detail-sections" style={{ marginBottom: 0 }}>
+          <div className="detail-section">
+            <p className="eyebrow detail-section-title">親会社</p>
+            <div className="detail-grid">
+              <div>
+                <p className="label">会社名</p>
+                <p>{parentCorporate.name}</p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
-
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-700">子会社</h3>
-        <button
-          onClick={() => { setAddSubId(""); setAddSubError(null); setShowAddSub(true); }}
-          className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-        >
-          + 追加
+      <div className="detail-sections">
+        <div className="detail-section">
+          <p className="eyebrow detail-section-title">子会社一覧</p>
+          {subsidiaries.length === 0 ? (
+            <p className="muted">子会社がありません</p>
+          ) : (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-2 text-gray-600 font-medium">会社名</th>
+                  <th className="text-right py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {subsidiaries.map((sub) => (
+                  <tr key={sub.id} className="border-b border-gray-100">
+                    <td className="py-2">{sub.name}</td>
+                    <td className="py-2 text-right">
+                      <button
+                        className="ghost"
+                        style={{ color: "var(--clr-danger)", fontSize: 12 }}
+                        onClick={() => handleRemoveSubsidiary(sub.id)}
+                      >
+                        解除
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+      <div className="detail-actions">
+        <button className="primary" onClick={() => { setAddSubId(""); setAddSubError(null); setShowAddSub(true); }}>
+          子会社を追加
         </button>
       </div>
 
-      {subsidiaries.length === 0 ? (
-        <p className="text-sm text-gray-500">子会社がありません</p>
-      ) : (
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="border-b border-gray-200">
-              <th className="text-left py-2 text-gray-600 font-medium">会社名</th>
-              <th className="text-right py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {subsidiaries.map((sub) => (
-              <tr key={sub.id} className="border-b border-gray-100">
-                <td className="py-2">{sub.name}</td>
-                <td className="py-2 text-right">
-                  <button
-                    onClick={() => handleRemoveSubsidiary(sub.id)}
-                    className="text-xs text-red-600 hover:underline"
-                  >
-                    解除
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
       {showAddSub && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">子会社を追加</h3>
-            {addSubError && <p className="text-red-600 text-sm mb-3">{addSubError}</p>}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">法人顧客 *</label>
-              <select
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                value={addSubId}
-                onChange={(e) => setAddSubId(e.target.value)}
-              >
-                <option value="">-- 選択してください --</option>
-                {availableForSub.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+        <div className="modal">
+          <div className="modal-card">
+            <h3>子会社を追加</h3>
+            {addSubError && <p style={{ color: "var(--clr-danger)", fontSize: 13, marginBottom: 8 }}>{addSubError}</p>}
+            <div className="form-grid">
+              <label className="form-full">
+                法人顧客 *
+                <select
+                  value={addSubId}
+                  onChange={(e) => setAddSubId(e.target.value)}
+                >
+                  <option value="">-- 選択してください --</option>
+                  {availableForSub.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </label>
             </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                onClick={() => { setShowAddSub(false); setAddSubError(null); }}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded"
-              >
+            <div className="modal-actions">
+              <button className="ghost" onClick={() => { setShowAddSub(false); setAddSubError(null); }}>
                 キャンセル
               </button>
-              <button
-                onClick={handleAddSubsidiary}
-                disabled={!addSubId}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-              >
+              <button className="primary" onClick={handleAddSubsidiary} disabled={!addSubId}>
                 追加
               </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
