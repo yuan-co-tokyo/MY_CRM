@@ -825,6 +825,7 @@ export default function App() {
 
   const [canSeePermissionsTab, setCanSeePermissionsTab] = useState(false);
   const [canSeeUsersTab, setCanSeeUsersTab] = useState(false);
+  const canSeeSettings = canSeePermissionsTab || canSeeUsersTab;
   const [permissionCheckDone, setPermissionCheckDone] = useState(false);
 
   useEffect(() => {
@@ -1333,14 +1334,6 @@ export default function App() {
             >
               ホーム
             </button>
-            {canSeePermissionsTab && (
-              <button
-                className={`sidebar-item ${view === "permissions" ? "active" : ""}`}
-                onClick={() => setView("permissions")}
-              >
-                権限管理
-              </button>
-            )}
             <button
               className={`sidebar-item ${view === "individual-customers" ? "active" : ""}`}
               onClick={() => { setView("individual-customers"); setSelectedCustomerId(null); setCustomerQuery(""); setCustomerStatusFilter("ALL"); }}
@@ -1359,12 +1352,12 @@ export default function App() {
             >
               法人顧客
             </button>
-            {canSeeUsersTab && (
+            {canSeeSettings && (
               <button
-                className={`sidebar-item ${view === "users" ? "active" : ""}`}
-                onClick={() => setView("users")}
+                className={`sidebar-item ${view === "permissions" || view === "users" ? "active" : ""}`}
+                onClick={() => setView(canSeePermissionsTab ? "permissions" : "users")}
               >
-                ユーザー
+                設定
               </button>
             )}
           </div>
@@ -1381,6 +1374,14 @@ export default function App() {
 
       {view === "permissions" && canSeePermissionsTab ? (
         <main className="layout">
+          <div className="settings-subnav">
+            {canSeePermissionsTab && (
+              <button className={`settings-subnav-item ${view === "permissions" ? "active" : ""}`} onClick={() => setView("permissions")}>権限管理</button>
+            )}
+            {canSeeUsersTab && (
+              <button className={`settings-subnav-item ${view === "users" ? "active" : ""}`} onClick={() => setView("users")}>ユーザー</button>
+            )}
+          </div>
           <section className="panel role-list">
             <div className="panel-header">
               <h2>Roles</h2>
@@ -1862,6 +1863,14 @@ export default function App() {
         <DashboardPage token={token} />
       ) : view === "users" && canSeeUsersTab ? (
         <main className="layout users">
+          <div className="settings-subnav">
+            {canSeePermissionsTab && (
+              <button className={`settings-subnav-item ${view === "permissions" ? "active" : ""}`} onClick={() => setView("permissions")}>権限管理</button>
+            )}
+            {canSeeUsersTab && (
+              <button className={`settings-subnav-item ${view === "users" ? "active" : ""}`} onClick={() => setView("users")}>ユーザー</button>
+            )}
+          </div>
           <section className="panel user-list">
             <div className="panel-header">
               <h2>Users</h2>
