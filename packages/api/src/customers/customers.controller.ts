@@ -63,6 +63,21 @@ const listQuerySchema = z.object({
   status: z.enum(["LEAD", "ACTIVE", "INACTIVE"]).optional()
 });
 
+const addEmployeeSchema = z.object({
+  individualCustomerId: z.string().min(1),
+  jobTitle: z.string().optional().nullable(),
+  department: z.string().optional().nullable()
+});
+
+const updateEmployeeSchema = z.object({
+  jobTitle: z.string().optional().nullable(),
+  department: z.string().optional().nullable()
+});
+
+const addSubsidiarySchema = z.object({
+  subsidiaryCustomerId: z.string().min(1)
+});
+
 @Controller("customers")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class CustomersController {
@@ -106,6 +121,75 @@ export class CustomersController {
   @RequirePermissions("customer.delete")
   async remove(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     await this.customersService.remove(req.user, id);
+    return { status: "ok" };
+  }
+
+  // ── Employees ──────────────────────────────────────────────────────────────
+
+  @Get(":id/employees")
+  @RequirePermissions("customer.read")
+  async listEmployees(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    return this.customersService.listEmployees(req.user, id);
+  }
+
+  @Post(":id/employees")
+  @RequirePermissions("customer.update")
+  async addEmployee(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(addEmployeeSchema)) body: z.infer<typeof addEmployeeSchema>
+  ) {
+    return this.customersService.addEmployee(req.user, id, body);
+  }
+
+  @Patch(":id/employees/:employmentId")
+  @RequirePermissions("customer.update")
+  async updateEmployee(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Param("employmentId") employmentId: string,
+    @Body(new ZodValidationPipe(updateEmployeeSchema)) body: z.infer<typeof updateEmployeeSchema>
+  ) {
+    return this.customersService.updateEmployee(req.user, id, employmentId, body);
+  }
+
+  @Delete(":id/employees/:employmentId")
+  @RequirePermissions("customer.update")
+  async removeEmployee(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Param("employmentId") employmentId: string
+  ) {
+    await this.customersService.removeEmployee(req.user, id, employmentId);
+    return { status: "ok" };
+  }
+
+  // ── Subsidiaries ────────────────────────────────────────────────────────────
+
+  @Get(":id/subsidiaries")
+  @RequirePermissions("customer.read")
+  async listSubsidiaries(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    return this.customersService.listSubsidiaries(req.user, id);
+  }
+
+  @Post(":id/subsidiaries")
+  @RequirePermissions("customer.update")
+  async addSubsidiary(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(addSubsidiarySchema)) body: z.infer<typeof addSubsidiarySchema>
+  ) {
+    return this.customersService.addSubsidiary(req.user, id, body.subsidiaryCustomerId);
+  }
+
+  @Delete(":id/subsidiaries/:subsidiaryId")
+  @RequirePermissions("customer.update")
+  async removeSubsidiary(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Param("subsidiaryId") subsidiaryId: string
+  ) {
+    await this.customersService.removeSubsidiary(req.user, id, subsidiaryId);
     return { status: "ok" };
   }
 }

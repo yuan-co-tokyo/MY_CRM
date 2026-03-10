@@ -10,7 +10,23 @@ const CUSTOMER_INCLUDE = {
     }
   },
   individualCustomer: true,
-  corporateCustomer: true,
+  corporateCustomer: {
+    include: {
+      parentCorporate: {
+        select: {
+          customerId: true,
+          customer: { select: { id: true, name: true } }
+        }
+      },
+      subsidiaries: {
+        select: {
+          customerId: true,
+          customer: { select: { id: true, name: true } }
+        }
+      }
+    }
+  },
+  householdMembership: { select: { householdId: true } }
 };
 
 @Injectable()
@@ -240,6 +256,188 @@ export class CustomersService {
     });
   }
 
+  // ── Employees ──────────────────────────────────────────────────────────────
+
+  async listEmployees(user: JwtPayload, corporateCustomerId: string) {
+    await this.ensureCorporateCustomer(user, corporateCustomerId);
+    const employments = await this.prisma.customerEmployment.findMany({
+      where: { corporateCustomerId },
+      include: {
+        individualCustomer: { select: { id: true, name: true, email: true } }
+      },
+      orderBy: { createdAt: "asc" }
+    });
+    return employments.map((e) => ({
+      employmentId: e.id,
+      customer: e.individualCustomer,
+      jobTitle: e.jobTitle,
+      department: e.department,
+      createdAt: e.createdAt
+    }));
+  }
+
+  async addEmployee(
+    user: JwtPayload,
+    corporateCustomerId: string,
+    input: { individualCustomerId: string; jobTitle?: string | null; department?: string | null }
+  ) {
+    await this.ensureCorporateCustomer(user, corporateCustomerId);
+
+    const individual = await this.prisma.customer.findFirst({
+      where: { id: input.individualCustomerId, tenantId: user.tenantId, deletedAt: null }
+    });
+    if (!individual) {
+      throw new NotFoundException("Individual customer not found");
+    }
+    if (individual.customerCategory !== "INDIVIDUAL") {
+      throw new BadRequestException("Only individual customers can be added as employees");
+    }
+
+    const employment = await this.prisma.customerEmployment.create({
+      data: {
+        corporateCustomerId,
+        individualCustomerId: input.individualCustomerId,
+        jobTitle: input.jobTitle ?? null,
+        department: input.department ?? null
+      },
+      include: {
+        individualCustomer: { select: { id: true, name: true, email: true } }
+      }
+    });
+
+    return {
+      employmentId: employment.id,
+      customer: employment.individualCustomer,
+      jobTitle: employment.jobTitle,
+      department: employment.department,
+      createdAt: employment.createdAt
+    };
+  }
+
+  async updateEmployee(
+    user: JwtPayload,
+    corporateCustomerId: string,
+    employmentId: string,
+    input: { jobTitle?: string | null; department?: string | null }
+  ) {
+    await this.ensureCorporateCustomer(user, corporateCustomerId);
+
+    const employment = await this.prisma.customerEmployment.findFirst({
+      where: { id: employmentId, corporateCustomerId }
+    });
+    if (!employment) {
+      throw new NotFoundException("Employment not found");
+    }
+
+    const updated = await this.prisma.customerEmployment.update({
+      where: { id: employmentId },
+      data: {
+        ...(input.jobTitle !== undefined ? { jobTitle: input.jobTitle } : {}),
+        ...(input.department !== undefined ? { department: input.department } : {})
+      },
+      include: {
+        individualCustomer: { select: { id: true, name: true, email: true } }
+      }
+    });
+
+    return {
+      employmentId: updated.id,
+      customer: updated.individualCustomer,
+      jobTitle: updated.jobTitle,
+      department: updated.department,
+      createdAt: updated.createdAt
+    };
+  }
+
+  async removeEmployee(user: JwtPayload, corporateCustomerId: string, employmentId: string) {
+    await this.ensureCorporateCustomer(user, corporateCustomerId);
+
+    const employment = await this.prisma.customerEmployment.findFirst({
+      where: { id: employmentId, corporateCustomerId }
+    });
+    if (!employment) {
+      throw new NotFoundException("Employment not found");
+    }
+
+    await this.prisma.customerEmployment.delete({ where: { id: employmentId } });
+  }
+
+  // ── Subsidiaries ────────────────────────────────────────────────────────────
+
+  async listSubsidiaries(user: JwtPayload, corporateCustomerId: string) {
+    await this.ensureCorporateCustomer(user, corporateCustomerId);
+    const corp = await this.prisma.corporateCustomer.findUnique({
+      where: { customerId: corporateCustomerId },
+      include: {
+        subsidiaries: {
+          select: { customerId: true, customer: { select: { id: true, name: true } } }
+        },
+        parentCorporate: {
+          select: { customerId: true, customer: { select: { id: true, name: true } } }
+        }
+      }
+    });
+    return {
+      parentCorporate: corp?.parentCorporate
+        ? { id: corp.parentCorporate.customerId, name: corp.parentCorporate.customer.name }
+        : null,
+      subsidiaries: corp?.subsidiaries.map((s) => ({ id: s.customerId, name: s.customer.name })) ?? []
+    };
+  }
+
+  async addSubsidiary(user: JwtPayload, corporateCustomerId: string, subsidiaryCustomerId: string) {
+    await this.ensureCorporateCustomer(user, corporateCustomerId);
+
+    if (corporateCustomerId === subsidiaryCustomerId) {
+      throw new BadRequestException("A company cannot be its own subsidiary");
+    }
+
+    const subsidiary = await this.prisma.customer.findFirst({
+      where: { id: subsidiaryCustomerId, tenantId: user.tenantId, deletedAt: null }
+    });
+    if (!subsidiary) {
+      throw new NotFoundException("Subsidiary customer not found");
+    }
+    if (subsidiary.customerCategory !== "CORPORATE") {
+      throw new BadRequestException("Only corporate customers can be added as subsidiaries");
+    }
+
+    await this.prisma.corporateCustomer.update({
+      where: { customerId: subsidiaryCustomerId },
+      data: { parentCorporateId: corporateCustomerId }
+    });
+
+    return this.listSubsidiaries(user, corporateCustomerId);
+  }
+
+  async removeSubsidiary(user: JwtPayload, corporateCustomerId: string, subsidiaryCustomerId: string) {
+    await this.ensureCorporateCustomer(user, corporateCustomerId);
+
+    const sub = await this.prisma.corporateCustomer.findFirst({
+      where: { customerId: subsidiaryCustomerId, parentCorporateId: corporateCustomerId }
+    });
+    if (!sub) {
+      throw new NotFoundException("Subsidiary not found");
+    }
+
+    await this.prisma.corporateCustomer.update({
+      where: { customerId: subsidiaryCustomerId },
+      data: { parentCorporateId: null }
+    });
+  }
+
+  private async ensureCorporateCustomer(user: JwtPayload, customerId: string) {
+    const customer = await this.prisma.customer.findFirst({
+      where: { id: customerId, tenantId: user.tenantId, deletedAt: null }
+    });
+    if (!customer) {
+      throw new NotFoundException("Customer not found");
+    }
+    if (customer.customerCategory !== "CORPORATE") {
+      throw new BadRequestException("Customer is not a corporate customer");
+    }
+  }
+
   private async ensureUsersInTenant(tenantId: string, userIds: Array<string | null | undefined>) {
     const ids = userIds.filter((id): id is string => Boolean(id));
     if (ids.length === 0) {
@@ -258,6 +456,7 @@ export class CustomersService {
 
   private toResponse(customer: any) {
     const ind = customer.individualCustomer;
+    const corp = customer.corporateCustomer;
     return {
       id: customer.id,
       tenantId: customer.tenantId,
@@ -279,6 +478,14 @@ export class CustomersService {
       workPhone:    ind?.workPhone    ?? null,
       workEmail:    ind?.workEmail    ?? null,
       annualIncome: ind?.annualIncome ?? null,
+      // Household
+      householdId: customer.householdMembership?.householdId ?? null,
+      // Corporate-specific fields
+      parentCorporateId: corp?.parentCorporateId ?? null,
+      parentCorporate: corp?.parentCorporate
+        ? { id: corp.parentCorporate.customerId, name: corp.parentCorporate.customer.name }
+        : null,
+      subsidiaries: corp?.subsidiaries?.map((s: any) => ({ id: s.customerId, name: s.customer.name })) ?? null,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt
     };

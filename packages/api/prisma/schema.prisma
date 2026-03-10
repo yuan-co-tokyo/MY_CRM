@@ -57,6 +57,7 @@ model Tenant {
   customers    Customer[]
   interactions Interaction[]
   roles        Role[]
+  households   Household[]
 }
 
 model User {
@@ -125,12 +126,15 @@ model Customer {
   updatedAt        DateTime          @updatedAt
   deletedAt        DateTime?
 
-  tenant             Tenant              @relation(fields: [tenantId], references: [id])
-  owner              User?               @relation("CustomerOwner", fields: [ownerUserId], references: [id])
-  assignees          CustomerAssignee[]
-  interactions       Interaction[]
-  individualCustomer IndividualCustomer?
-  corporateCustomer  CorporateCustomer?
+  tenant              Tenant               @relation(fields: [tenantId], references: [id])
+  owner               User?                @relation("CustomerOwner", fields: [ownerUserId], references: [id])
+  assignees           CustomerAssignee[]
+  interactions        Interaction[]
+  individualCustomer  IndividualCustomer?
+  corporateCustomer   CorporateCustomer?
+  householdMembership HouseholdMembership?
+  employerRelations   CustomerEmployment[] @relation("EmployerRelation")
+  employeeRelations   CustomerEmployment[] @relation("EmployeeRelation")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -151,9 +155,58 @@ model IndividualCustomer {
 }
 
 model CorporateCustomer {
-  customerId String   @id
+  customerId        String  @id
+  parentCorporateId String?
 
-  customer   Customer @relation(fields: [customerId], references: [id])
+  customer        Customer            @relation(fields: [customerId], references: [id])
+  parentCorporate CorporateCustomer?  @relation("CorporateHierarchy", fields: [parentCorporateId], references: [customerId])
+  subsidiaries    CorporateCustomer[] @relation("CorporateHierarchy")
+}
+
+model Household {
+  id         String    @id @default(cuid())
+  tenantId   String
+  name       String
+  postalCode String?
+  address    String?
+  phone      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  tenant  Tenant                @relation(fields: [tenantId], references: [id])
+  members HouseholdMembership[]
+
+  @@index([tenantId])
+}
+
+model HouseholdMembership {
+  householdId String
+  customerId  String
+  createdAt   DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id])
+  customer  Customer  @relation(fields: [customerId], references: [id])
+
+  @@id([householdId, customerId])
+  @@unique([customerId])
+}
+
+model CustomerEmployment {
+  id                   String   @id @default(cuid())
+  corporateCustomerId  String
+  individualCustomerId String
+  jobTitle             String?
+  department           String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  corporateCustomer  Customer @relation("EmployerRelation", fields: [corporateCustomerId], references: [id])
+  individualCustomer Customer @relation("EmployeeRelation", fields: [individualCustomerId], references: [id])
+
+  @@unique([corporateCustomerId, individualCustomerId])
+  @@index([corporateCustomerId])
+  @@index([individualCustomerId])
 }
 
 model CustomerAssignee {

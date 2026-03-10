@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import "./style.css";
 import LoginPage from "./LoginPage";
 import DashboardPage from "./DashboardPage";
@@ -38,6 +38,29 @@ type Customer = {
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
+  householdId?: string | null;
+  parentCorporateId?: string | null;
+  parentCorporate?: { id: string; name: string } | null;
+  subsidiaries?: { id: string; name: string }[] | null;
+};
+
+type Household = {
+  id: string;
+  name: string;
+  postalCode: string | null;
+  address: string | null;
+  phone: string | null;
+  members: { id: string; name: string }[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+type Employment = {
+  employmentId: string;
+  customer: { id: string; name: string; email: string | null };
+  jobTitle: string | null;
+  department: string | null;
+  createdAt: string;
 };
 
 type User = {
@@ -59,7 +82,7 @@ type Interaction = {
   createdAt: string;
 };
 
-type ViewKey = "permissions" | "individual-customers" | "corporate-customers" | "users" | "dashboard";
+type ViewKey = "permissions" | "individual-customers" | "corporate-customers" | "users" | "dashboard" | "households";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
 
@@ -101,6 +124,647 @@ const emptyCustomer = {
   notes: ""
 };
 
+function HouseholdsView({ token }: { token: string }) {
+  const [households, setHouseholds] = useState<Household[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [householdDetailView, setHouseholdDetailView] = useState<"info" | "members">("info");
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: "", postalCode: "", address: "", phone: "" });
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [allIndividuals, setAllIndividuals] = useState<Customer[]>([]);
+  const [addMemberCustomerId, setAddMemberCustomerId] = useState("");
+  const [memberError, setMemberError] = useState<string | null>(null);
+
+  const selected = households.find((h) => h.id === selectedId) ?? null;
+
+  const load = useCallback(async () => {
+    try {
+      const res = await apiFetch<Household[]>("/households", token);
+      setHouseholds(res);
+    } catch {
+      // ignore
+    }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleCreate = async () => {
+    setCreateError(null);
+    try {
+      await apiFetch<Household>("/households", token, {
+        method: "POST",
+        body: JSON.stringify({
+          name: createForm.name,
+          postalCode: createForm.postalCode || null,
+          address: createForm.address || null,
+          phone: createForm.phone || null
+        })
+      });
+      setShowCreate(false);
+      setCreateForm({ name: "", postalCode: "", address: "", phone: "" });
+      await load();
+    } catch (err: any) {
+      setCreateError(err.message ?? "作成に失敗しました");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("この世帯を削除しますか？")) return;
+    try {
+      await apiFetch(`/households/${id}`, token, { method: "DELETE" });
+      if (selectedId === id) setSelectedId(null);
+      await load();
+    } catch {
+      // ignore
+    }
+  };
+
+  const openAddMember = async () => {
+    try {
+      const all = await apiFetch<Customer[]>("/customers?customerCategory=INDIVIDUAL", token);
+      setAllIndividuals(all.filter((c) => !c.householdId));
+    } catch {
+      setAllIndividuals([]);
+    }
+    setAddMemberCustomerId("");
+    setMemberError(null);
+    setShowAddMember(true);
+  };
+
+  const handleAddMember = async () => {
+    if (!selectedId || !addMemberCustomerId) return;
+    setMemberError(null);
+    try {
+      await apiFetch(`/households/${selectedId}/members`, token, {
+        method: "POST",
+        body: JSON.stringify({ customerId: addMemberCustomerId })
+      });
+      setShowAddMember(false);
+      await load();
+    } catch (err: any) {
+      setMemberError(err.message ?? "追加に失敗しました");
+    }
+  };
+
+  const handleRemoveMember = async (customerId: string) => {
+    if (!selectedId) return;
+    try {
+      await apiFetch(`/households/${selectedId}/members/${customerId}`, token, { method: "DELETE" });
+      await load();
+    } catch {
+      // ignore
+    }
+  };
+
+  return (
+    <>
+      {selected === null ? (
+        <main className="main-content">
+          <section className="panel customer-panel-list">
+            <div className="panel-header">
+              <h2>世帯一覧</h2>
+              <span className="chip">{households.length}</span>
+            </div>
+            <div className="customer-list-rows">
+              {households.length === 0 && (
+                <p className="muted">世帯がありません</p>
+              )}
+              {households.map((h) => (
+                <button
+                  key={h.id}
+                  className="role-item customer-row"
+                  onClick={() => { setSelectedId(h.id); setHouseholdDetailView("info"); }}
+                >
+                  <div className="customer-row-main">
+                    <p className="role-name">{h.name}</p>
+                    <p className="role-meta">{h.address || "ー"}</p>
+                  </div>
+                  <div className="customer-row-meta">
+                    <span className="chip">{h.members.length}人</span>
+                  </div>
+                  <span className="chev">›</span>
+                </button>
+              ))}
+            </div>
+            <button className="primary" onClick={() => setShowCreate(true)}>
+              世帯を追加
+            </button>
+          </section>
+        </main>
+      ) : (
+        <main className="main-content">
+          <section className="panel customer-panel-detail">
+            <div className="panel-header">
+              <div className="customer-detail-back">
+                <button className="ghost" onClick={() => setSelectedId(null)}>
+                  ← 世帯一覧
+                </button>
+                <h2>{selected.name}</h2>
+              </div>
+              <span className="chip">{selected.members.length}人</span>
+            </div>
+
+            <div className="customer-detail-shell">
+              <nav className="customer-detail-sidebar">
+                <button
+                  className={`sidebar-item${householdDetailView === "info" ? " active" : ""}`}
+                  onClick={() => setHouseholdDetailView("info")}
+                >
+                  世帯情報
+                </button>
+                <button
+                  className={`sidebar-item${householdDetailView === "members" ? " active" : ""}`}
+                  onClick={() => setHouseholdDetailView("members")}
+                >
+                  メンバー
+                  <span className="chip" style={{ marginLeft: 6, fontSize: 11 }}>
+                    {selected.members.length}
+                  </span>
+                </button>
+              </nav>
+
+              <div className="customer-detail-content">
+                {householdDetailView === "info" && (
+                  <>
+                    <div className="detail-sections">
+                      <div className="detail-section">
+                        <p className="eyebrow detail-section-title">基本情報</p>
+                        <div className="detail-grid">
+                          <div>
+                            <p className="label">世帯名</p>
+                            <p>{selected.name}</p>
+                          </div>
+                          <div>
+                            <p className="label">電話番号</p>
+                            <p>{selected.phone || "ー"}</p>
+                          </div>
+                          <div>
+                            <p className="label">郵便番号</p>
+                            <p>{selected.postalCode || "ー"}</p>
+                          </div>
+                          <div>
+                            <p className="label">住所</p>
+                            <p>{selected.address || "ー"}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="detail-section">
+                        <p className="eyebrow detail-section-title">システム情報</p>
+                        <div className="detail-grid">
+                          <div>
+                            <p className="label">登録日時</p>
+                            <p>{new Date(selected.createdAt).toLocaleString("ja-JP")}</p>
+                          </div>
+                          <div>
+                            <p className="label">更新日時</p>
+                            <p>{new Date(selected.updatedAt).toLocaleString("ja-JP")}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="detail-actions">
+                      <button className="danger" onClick={() => handleDelete(selected.id)}>
+                        削除
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {householdDetailView === "members" && (
+                  <>
+                    <div className="detail-sections">
+                      <div className="detail-section">
+                        <p className="eyebrow detail-section-title">メンバー一覧</p>
+                        {selected.members.length === 0 ? (
+                          <p className="muted">メンバーがいません</p>
+                        ) : (
+                          <table className="w-full text-sm border-collapse">
+                            <thead>
+                              <tr className="border-b border-gray-200">
+                                <th className="text-left py-2 text-gray-600 font-medium">名前</th>
+                                <th className="text-right py-2"></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selected.members.map((m) => (
+                                <tr key={m.id} className="border-b border-gray-100">
+                                  <td className="py-2">{m.name}</td>
+                                  <td className="py-2 text-right">
+                                    <button
+                                      className="ghost"
+                                      style={{ color: "var(--clr-danger)", fontSize: 12 }}
+                                      onClick={() => handleRemoveMember(m.id)}
+                                    >
+                                      解除
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    </div>
+                    <div className="detail-actions">
+                      <button className="primary" onClick={openAddMember}>
+                        メンバーを追加
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </section>
+        </main>
+      )}
+
+      {showCreate && (
+        <div className="modal">
+          <div className="modal-card">
+            <h3>世帯を追加</h3>
+            {createError && <p style={{ color: "var(--clr-danger)", fontSize: 13, marginBottom: 8 }}>{createError}</p>}
+            <div className="form-grid">
+              <label className="form-full">
+                世帯名 *
+                <input
+                  value={createForm.name}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
+                />
+              </label>
+              <label>
+                郵便番号
+                <input
+                  value={createForm.postalCode}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, postalCode: e.target.value }))}
+                />
+              </label>
+              <label>
+                住所
+                <input
+                  value={createForm.address}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, address: e.target.value }))}
+                />
+              </label>
+              <label>
+                電話番号
+                <input
+                  value={createForm.phone}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
+                />
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button
+                className="ghost"
+                onClick={() => { setShowCreate(false); setCreateError(null); }}
+              >
+                キャンセル
+              </button>
+              <button
+                className="primary"
+                onClick={handleCreate}
+                disabled={!createForm.name}
+              >
+                作成
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddMember && (
+        <div className="modal">
+          <div className="modal-card">
+            <h3>メンバーを追加</h3>
+            {memberError && <p style={{ color: "var(--clr-danger)", fontSize: 13, marginBottom: 8 }}>{memberError}</p>}
+            <div className="form-grid">
+              <label className="form-full">
+                個人顧客
+                <select
+                  value={addMemberCustomerId}
+                  onChange={(e) => setAddMemberCustomerId(e.target.value)}
+                >
+                  <option value="">-- 選択してください --</option>
+                  {allIndividuals.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button
+                className="ghost"
+                onClick={() => { setShowAddMember(false); setMemberError(null); }}
+              >
+                キャンセル
+              </button>
+              <button
+                className="primary"
+                onClick={handleAddMember}
+                disabled={!addMemberCustomerId}
+              >
+                追加
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function EmployeesTab({ customerId, token }: { customerId: string; token: string }) {
+  const [employees, setEmployees] = useState<Employment[]>([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [allIndividuals, setAllIndividuals] = useState<Customer[]>([]);
+  const [addForm, setAddForm] = useState({ individualCustomerId: "", jobTitle: "", department: "" });
+  const [addError, setAddError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await apiFetch<Employment[]>(`/customers/${customerId}/employees`, token);
+      setEmployees(res);
+    } catch {
+      // ignore
+    }
+  }, [customerId, token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openAdd = async () => {
+    try {
+      const all = await apiFetch<Customer[]>("/customers?customerCategory=INDIVIDUAL", token);
+      setAllIndividuals(all);
+    } catch {
+      setAllIndividuals([]);
+    }
+    setAddForm({ individualCustomerId: "", jobTitle: "", department: "" });
+    setAddError(null);
+    setShowAdd(true);
+  };
+
+  const handleAdd = async () => {
+    if (!addForm.individualCustomerId) return;
+    setAddError(null);
+    try {
+      await apiFetch(`/customers/${customerId}/employees`, token, {
+        method: "POST",
+        body: JSON.stringify({
+          individualCustomerId: addForm.individualCustomerId,
+          jobTitle: addForm.jobTitle || null,
+          department: addForm.department || null
+        })
+      });
+      setShowAdd(false);
+      await load();
+    } catch (err: any) {
+      setAddError(err.message ?? "追加に失敗しました");
+    }
+  };
+
+  const handleRemove = async (employmentId: string) => {
+    try {
+      await apiFetch(`/customers/${customerId}/employees/${employmentId}`, token, { method: "DELETE" });
+      await load();
+    } catch {
+      // ignore
+    }
+  };
+
+  return (
+    <>
+      <div className="detail-sections">
+        <div className="detail-section">
+          <p className="eyebrow detail-section-title">従業員一覧</p>
+          {employees.length === 0 ? (
+            <p className="muted">従業員がいません</p>
+          ) : (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-2 text-gray-600 font-medium">名前</th>
+                  <th className="text-left py-2 text-gray-600 font-medium">メール</th>
+                  <th className="text-left py-2 text-gray-600 font-medium">役職</th>
+                  <th className="text-left py-2 text-gray-600 font-medium">部署</th>
+                  <th className="text-right py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {employees.map((emp) => (
+                  <tr key={emp.employmentId} className="border-b border-gray-100">
+                    <td className="py-2">{emp.customer.name}</td>
+                    <td className="py-2">{emp.customer.email ?? "ー"}</td>
+                    <td className="py-2">{emp.jobTitle ?? "ー"}</td>
+                    <td className="py-2">{emp.department ?? "ー"}</td>
+                    <td className="py-2 text-right">
+                      <button
+                        className="ghost"
+                        style={{ color: "var(--clr-danger)", fontSize: 12 }}
+                        onClick={() => handleRemove(emp.employmentId)}
+                      >
+                        解除
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+      <div className="detail-actions">
+        <button className="primary" onClick={openAdd}>
+          従業員を追加
+        </button>
+      </div>
+
+      {showAdd && (
+        <div className="modal">
+          <div className="modal-card">
+            <h3>従業員を追加</h3>
+            {addError && <p style={{ color: "var(--clr-danger)", fontSize: 13, marginBottom: 8 }}>{addError}</p>}
+            <div className="form-grid">
+              <label className="form-full">
+                個人顧客 *
+                <select
+                  value={addForm.individualCustomerId}
+                  onChange={(e) => setAddForm((f) => ({ ...f, individualCustomerId: e.target.value }))}
+                >
+                  <option value="">-- 選択してください --</option>
+                  {allIndividuals.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="form-full">
+                役職
+                <input
+                  value={addForm.jobTitle}
+                  onChange={(e) => setAddForm((f) => ({ ...f, jobTitle: e.target.value }))}
+                />
+              </label>
+              <label className="form-full">
+                部署
+                <input
+                  value={addForm.department}
+                  onChange={(e) => setAddForm((f) => ({ ...f, department: e.target.value }))}
+                />
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button className="ghost" onClick={() => { setShowAdd(false); setAddError(null); }}>
+                キャンセル
+              </button>
+              <button className="primary" onClick={handleAdd} disabled={!addForm.individualCustomerId}>
+                追加
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function CorporateGroupTab({ customerId, token, allCorporates }: { customerId: string; token: string; allCorporates: Customer[] }) {
+  const [subsidiaries, setSubsidiaries] = useState<{ id: string; name: string }[]>([]);
+  const [parentCorporate, setParentCorporate] = useState<{ id: string; name: string } | null>(null);
+  const [showAddSub, setShowAddSub] = useState(false);
+  const [addSubId, setAddSubId] = useState("");
+  const [addSubError, setAddSubError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await apiFetch<{ parentCorporate: { id: string; name: string } | null; subsidiaries: { id: string; name: string }[] }>(
+        `/customers/${customerId}/subsidiaries`, token
+      );
+      setSubsidiaries(res.subsidiaries);
+      setParentCorporate(res.parentCorporate);
+    } catch {
+      setSubsidiaries([]);
+      setParentCorporate(null);
+    }
+  }, [customerId, token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleAddSubsidiary = async () => {
+    if (!addSubId) return;
+    setAddSubError(null);
+    try {
+      await apiFetch(`/customers/${customerId}/subsidiaries`, token, {
+        method: "POST",
+        body: JSON.stringify({ subsidiaryCustomerId: addSubId })
+      });
+      setShowAddSub(false);
+      await load();
+    } catch (err: any) {
+      setAddSubError(err.message ?? "追加に失敗しました");
+    }
+  };
+
+  const handleRemoveSubsidiary = async (subId: string) => {
+    try {
+      await apiFetch(`/customers/${customerId}/subsidiaries/${subId}`, token, { method: "DELETE" });
+      await load();
+    } catch {
+      // ignore
+    }
+  };
+
+  const availableForSub = allCorporates.filter(
+    (c) => c.id !== customerId && !subsidiaries.find((s) => s.id === c.id)
+  );
+
+  return (
+    <>
+      {parentCorporate && (
+        <div className="detail-sections" style={{ marginBottom: 0 }}>
+          <div className="detail-section">
+            <p className="eyebrow detail-section-title">親会社</p>
+            <div className="detail-grid">
+              <div>
+                <p className="label">会社名</p>
+                <p>{parentCorporate.name}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="detail-sections">
+        <div className="detail-section">
+          <p className="eyebrow detail-section-title">子会社一覧</p>
+          {subsidiaries.length === 0 ? (
+            <p className="muted">子会社がありません</p>
+          ) : (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-2 text-gray-600 font-medium">会社名</th>
+                  <th className="text-right py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {subsidiaries.map((sub) => (
+                  <tr key={sub.id} className="border-b border-gray-100">
+                    <td className="py-2">{sub.name}</td>
+                    <td className="py-2 text-right">
+                      <button
+                        className="ghost"
+                        style={{ color: "var(--clr-danger)", fontSize: 12 }}
+                        onClick={() => handleRemoveSubsidiary(sub.id)}
+                      >
+                        解除
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+      <div className="detail-actions">
+        <button className="primary" onClick={() => { setAddSubId(""); setAddSubError(null); setShowAddSub(true); }}>
+          子会社を追加
+        </button>
+      </div>
+
+      {showAddSub && (
+        <div className="modal">
+          <div className="modal-card">
+            <h3>子会社を追加</h3>
+            {addSubError && <p style={{ color: "var(--clr-danger)", fontSize: 13, marginBottom: 8 }}>{addSubError}</p>}
+            <div className="form-grid">
+              <label className="form-full">
+                法人顧客 *
+                <select
+                  value={addSubId}
+                  onChange={(e) => setAddSubId(e.target.value)}
+                >
+                  <option value="">-- 選択してください --</option>
+                  {availableForSub.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button className="ghost" onClick={() => { setShowAddSub(false); setAddSubError(null); }}>
+                キャンセル
+              </button>
+              <button className="primary" onClick={handleAddSubsidiary} disabled={!addSubId}>
+                追加
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem("crm_token") || "");
   const [loginEmail, setLoginEmail] = useState(() => localStorage.getItem("crm_email") || "");
@@ -123,7 +787,7 @@ export default function App() {
   const [customerQuery, setCustomerQuery] = useState("");
   const [customerStatusFilter, setCustomerStatusFilter] = useState<string>("ALL");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [customerDetailView, setCustomerDetailView] = useState<"info" | "interactions">("info");
+  const [customerDetailView, setCustomerDetailView] = useState<"info" | "interactions" | "employees" | "group">("info");
   const [customerForm, setCustomerForm] = useState({ ...emptyCustomer });
   const [customerFormMode, setCustomerFormMode] = useState<"create" | "edit">("create");
   const [customerFormOpen, setCustomerFormOpen] = useState(false);
@@ -235,6 +899,8 @@ export default function App() {
       return matchesQuery && matchesStatus && matchesType;
     });
   }, [userQuery, userStatusFilter, userTypeFilter, users]);
+
+  const corporateCustomers = useMemo(() => customers.filter((c) => c.customerCategory === "CORPORATE"), [customers]);
 
   async function loadPermissions() {
     setError("");
@@ -682,6 +1348,12 @@ export default function App() {
               個人顧客
             </button>
             <button
+              className={`sidebar-item ${view === "households" ? "active" : ""}`}
+              onClick={() => setView("households")}
+            >
+              世帯
+            </button>
+            <button
               className={`sidebar-item ${view === "corporate-customers" ? "active" : ""}`}
               onClick={() => { setView("corporate-customers"); setSelectedCustomerId(null); setCustomerQuery(""); setCustomerStatusFilter("ALL"); }}
             >
@@ -897,6 +1569,22 @@ export default function App() {
                         {interactions.length}
                       </span>
                     </button>
+                    {view === "corporate-customers" && (
+                      <>
+                        <button
+                          className={`sidebar-item${customerDetailView === "employees" ? " active" : ""}`}
+                          onClick={() => setCustomerDetailView("employees")}
+                        >
+                          従業員
+                        </button>
+                        <button
+                          className={`sidebar-item${customerDetailView === "group" ? " active" : ""}`}
+                          onClick={() => setCustomerDetailView("group")}
+                        >
+                          グループ企業
+                        </button>
+                      </>
+                    )}
                   </nav>
 
                   {/* ── 右コンテンツ ── */}
@@ -989,6 +1677,19 @@ export default function App() {
                               </div>
                             </div>
                           </div>
+
+                          {/* 世帯情報 (個人顧客のみ) */}
+                          {view === "individual-customers" && selectedCustomer.householdId && (
+                            <div className="detail-section">
+                              <p className="eyebrow detail-section-title">世帯</p>
+                              <div className="detail-grid">
+                                <div>
+                                  <p className="label">世帯ID</p>
+                                  <p>{selectedCustomer.householdId}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
                           {/* 担当情報 */}
                           <div className="detail-section">
@@ -1143,12 +1844,20 @@ export default function App() {
                         </div>
                       </div>
                     )}
+                    {customerDetailView === "employees" && view === "corporate-customers" && (
+                      <EmployeesTab customerId={selectedCustomer.id} token={token} />
+                    )}
+                    {customerDetailView === "group" && view === "corporate-customers" && (
+                      <CorporateGroupTab customerId={selectedCustomer.id} token={token} allCorporates={corporateCustomers} />
+                    )}
                   </div>
                 </div>
               )}
             </section>
           </main>
         )
+      ) : view === "households" ? (
+        <HouseholdsView token={token} />
       ) : view === "dashboard" ? (
         <DashboardPage token={token} />
       ) : view === "users" && canSeeUsersTab ? (

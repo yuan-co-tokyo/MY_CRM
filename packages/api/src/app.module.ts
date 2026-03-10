@@ -10,6 +10,7 @@ import { GroupsModule } from "./groups/groups.module";
 import { RolesModule } from "./roles/roles.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { AdminModule } from "./admin/admin.module";
+import { HouseholdsModule } from "./households/households.module";
 
 @Module({
   imports: [
@@ -21,7 +22,8 @@ import { AdminModule } from "./admin/admin.module";
     GroupsModule,
     RolesModule,
     DashboardModule,
-    AdminModule
+    AdminModule,
+    HouseholdsModule
   ],
   controllers: [AppController],
   providers: [AppService]

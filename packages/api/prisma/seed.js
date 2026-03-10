@@ -54,14 +54,21 @@ const PERMISSIONS = [
 
   // Tenants (admin only)
   { code: "tenant.read", description: "Read tenant" },
-  { code: "tenant.update", description: "Update tenant" }
+  { code: "tenant.update", description: "Update tenant" },
+
+  // Households
+  { code: "household.read",   description: "Read households" },
+  { code: "household.create", description: "Create households" },
+  { code: "household.update", description: "Update households and members" },
+  { code: "household.delete", description: "Delete households" }
 ];
 
 const STANDARD_PERMISSION_CODES = new Set([
   "customer.create",
   "customer.read",
   "interaction.read",
-  "interaction.create"
+  "interaction.create",
+  "household.read"
 ]);
 
 async function main() {
