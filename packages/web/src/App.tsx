@@ -127,6 +127,7 @@ const emptyCustomer = {
 function HouseholdsView({ token }: { token: string }) {
   const [households, setHouseholds] = useState<Household[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [householdDetailView, setHouseholdDetailView] = useState<"info" | "members">("info");
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ name: "", postalCode: "", address: "", phone: "" });
   const [createError, setCreateError] = useState<string | null>(null);
@@ -138,51 +139,53 @@ function HouseholdsView({ token }: { token: string }) {
   const selected = households.find((h) => h.id === selectedId) ?? null;
 
   const load = useCallback(async () => {
-    const res = await fetch(`${API_BASE}/households`, { headers: { Authorization: `Bearer ${token}` } });
-    if (res.ok) setHouseholds(await res.json());
+    try {
+      const res = await apiFetch<Household[]>("/households", token);
+      setHouseholds(res);
+    } catch {
+      // ignore
+    }
   }, [token]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleCreate = async () => {
     setCreateError(null);
-    const res = await fetch(`${API_BASE}/households`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: createForm.name,
-        postalCode: createForm.postalCode || null,
-        address: createForm.address || null,
-        phone: createForm.phone || null
-      })
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      setCreateError((err as { message?: string }).message ?? "作成に失敗しました");
-      return;
+    try {
+      await apiFetch<Household>("/households", token, {
+        method: "POST",
+        body: JSON.stringify({
+          name: createForm.name,
+          postalCode: createForm.postalCode || null,
+          address: createForm.address || null,
+          phone: createForm.phone || null
+        })
+      });
+      setShowCreate(false);
+      setCreateForm({ name: "", postalCode: "", address: "", phone: "" });
+      await load();
+    } catch (err: any) {
+      setCreateError(err.message ?? "作成に失敗しました");
     }
-    setShowCreate(false);
-    setCreateForm({ name: "", postalCode: "", address: "", phone: "" });
-    await load();
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("この世帯を削除しますか？")) return;
-    await fetch(`${API_BASE}/households/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (selectedId === id) setSelectedId(null);
-    await load();
+    try {
+      await apiFetch(`/households/${id}`, token, { method: "DELETE" });
+      if (selectedId === id) setSelectedId(null);
+      await load();
+    } catch {
+      // ignore
+    }
   };
 
   const openAddMember = async () => {
-    const res = await fetch(`${API_BASE}/customers?customerCategory=INDIVIDUAL`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (res.ok) {
-      const all: Customer[] = await res.json();
+    try {
+      const all = await apiFetch<Customer[]>("/customers?customerCategory=INDIVIDUAL", token);
       setAllIndividuals(all.filter((c) => !c.householdId));
+    } catch {
+      setAllIndividuals([]);
     }
     setAddMemberCustomerId("");
     setMemberError(null);
@@ -192,170 +195,236 @@ function HouseholdsView({ token }: { token: string }) {
   const handleAddMember = async () => {
     if (!selectedId || !addMemberCustomerId) return;
     setMemberError(null);
-    const res = await fetch(`${API_BASE}/households/${selectedId}/members`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ customerId: addMemberCustomerId })
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      setMemberError((err as { message?: string }).message ?? "追加に失敗しました");
-      return;
+    try {
+      await apiFetch(`/households/${selectedId}/members`, token, {
+        method: "POST",
+        body: JSON.stringify({ customerId: addMemberCustomerId })
+      });
+      setShowAddMember(false);
+      await load();
+    } catch (err: any) {
+      setMemberError(err.message ?? "追加に失敗しました");
     }
-    setShowAddMember(false);
-    await load();
   };
 
   const handleRemoveMember = async (customerId: string) => {
     if (!selectedId) return;
-    await fetch(`${API_BASE}/households/${selectedId}/members/${customerId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    await load();
+    try {
+      await apiFetch(`/households/${selectedId}/members/${customerId}`, token, { method: "DELETE" });
+      await load();
+    } catch {
+      // ignore
+    }
   };
 
   return (
-    <div className="flex h-full">
-      {/* Left: list */}
-      <div className="w-72 border-r border-gray-200 flex flex-col">
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="font-semibold text-gray-800">世帯一覧</h2>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-          >
-            + 追加
-          </button>
-        </div>
-        <div className="overflow-y-auto flex-1">
-          {households.length === 0 && <p className="p-4 text-sm text-gray-500">世帯がありません</p>}
-          {households.map((h) => (
-            <div
-              key={h.id}
-              onClick={() => setSelectedId(h.id)}
-              className={`p-3 cursor-pointer border-b border-gray-100 hover:bg-gray-50 ${selectedId === h.id ? "bg-blue-50" : ""}`}
-            >
-              <div className="font-medium text-sm text-gray-800">{h.name}</div>
-              <div className="text-xs text-gray-500">{h.members.length}人</div>
+    <>
+      {selected === null ? (
+        <main className="main-content">
+          <section className="panel customer-panel-list">
+            <div className="panel-header">
+              <h2>世帯一覧</h2>
+              <span className="chip">{households.length}</span>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Right: detail */}
-      <div className="flex-1 p-6 overflow-y-auto">
-        {!selected ? (
-          <p className="text-gray-500">世帯を選択してください</p>
-        ) : (
-          <>
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-800">{selected.name}</h2>
-                {selected.postalCode && <p className="text-sm text-gray-600">〒{selected.postalCode}</p>}
-                {selected.address && <p className="text-sm text-gray-600">{selected.address}</p>}
-                {selected.phone && <p className="text-sm text-gray-600">{selected.phone}</p>}
+            <div className="customer-list-rows">
+              {households.length === 0 && (
+                <p className="muted">世帯がありません</p>
+              )}
+              {households.map((h) => (
+                <button
+                  key={h.id}
+                  className="role-item customer-row"
+                  onClick={() => { setSelectedId(h.id); setHouseholdDetailView("info"); }}
+                >
+                  <div className="customer-row-main">
+                    <p className="role-name">{h.name}</p>
+                    <p className="role-meta">{h.address || "ー"}</p>
+                  </div>
+                  <div className="customer-row-meta">
+                    <span className="chip">{h.members.length}人</span>
+                  </div>
+                  <span className="chev">›</span>
+                </button>
+              ))}
+            </div>
+            <button className="primary" onClick={() => setShowCreate(true)}>
+              世帯を追加
+            </button>
+          </section>
+        </main>
+      ) : (
+        <main className="main-content">
+          <section className="panel customer-panel-detail">
+            <div className="panel-header">
+              <div className="customer-detail-back">
+                <button className="ghost" onClick={() => setSelectedId(null)}>
+                  ← 世帯一覧
+                </button>
+                <h2>{selected.name}</h2>
               </div>
-              <button
-                onClick={() => handleDelete(selected.id)}
-                className="text-sm text-red-600 hover:underline"
-              >
-                削除
-              </button>
+              <span className="chip">{selected.members.length}人</span>
             </div>
 
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-semibold text-gray-700">メンバー</h3>
-              <button
-                onClick={openAddMember}
-                className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-              >
-                + メンバー追加
-              </button>
+            <div className="customer-detail-shell">
+              <nav className="customer-detail-sidebar">
+                <button
+                  className={`sidebar-item${householdDetailView === "info" ? " active" : ""}`}
+                  onClick={() => setHouseholdDetailView("info")}
+                >
+                  世帯情報
+                </button>
+                <button
+                  className={`sidebar-item${householdDetailView === "members" ? " active" : ""}`}
+                  onClick={() => setHouseholdDetailView("members")}
+                >
+                  メンバー
+                  <span className="chip" style={{ marginLeft: 6, fontSize: 11 }}>
+                    {selected.members.length}
+                  </span>
+                </button>
+              </nav>
+
+              <div className="customer-detail-content">
+                {householdDetailView === "info" && (
+                  <>
+                    <div className="detail-sections">
+                      <div className="detail-section">
+                        <p className="eyebrow detail-section-title">基本情報</p>
+                        <div className="detail-grid">
+                          <div>
+                            <p className="label">世帯名</p>
+                            <p>{selected.name}</p>
+                          </div>
+                          <div>
+                            <p className="label">電話番号</p>
+                            <p>{selected.phone || "ー"}</p>
+                          </div>
+                          <div>
+                            <p className="label">郵便番号</p>
+                            <p>{selected.postalCode || "ー"}</p>
+                          </div>
+                          <div>
+                            <p className="label">住所</p>
+                            <p>{selected.address || "ー"}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="detail-section">
+                        <p className="eyebrow detail-section-title">システム情報</p>
+                        <div className="detail-grid">
+                          <div>
+                            <p className="label">登録日時</p>
+                            <p>{new Date(selected.createdAt).toLocaleString("ja-JP")}</p>
+                          </div>
+                          <div>
+                            <p className="label">更新日時</p>
+                            <p>{new Date(selected.updatedAt).toLocaleString("ja-JP")}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="detail-actions">
+                      <button className="danger" onClick={() => handleDelete(selected.id)}>
+                        削除
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {householdDetailView === "members" && (
+                  <>
+                    <div className="detail-sections">
+                      <div className="detail-section">
+                        <p className="eyebrow detail-section-title">メンバー一覧</p>
+                        {selected.members.length === 0 ? (
+                          <p className="muted">メンバーがいません</p>
+                        ) : (
+                          <table className="w-full text-sm border-collapse">
+                            <thead>
+                              <tr className="border-b border-gray-200">
+                                <th className="text-left py-2 text-gray-600 font-medium">名前</th>
+                                <th className="text-right py-2"></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selected.members.map((m) => (
+                                <tr key={m.id} className="border-b border-gray-100">
+                                  <td className="py-2">{m.name}</td>
+                                  <td className="py-2 text-right">
+                                    <button
+                                      className="ghost"
+                                      style={{ color: "var(--clr-danger)", fontSize: 12 }}
+                                      onClick={() => handleRemoveMember(m.id)}
+                                    >
+                                      解除
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    </div>
+                    <div className="detail-actions">
+                      <button className="primary" onClick={openAddMember}>
+                        メンバーを追加
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
+          </section>
+        </main>
+      )}
 
-            {selected.members.length === 0 ? (
-              <p className="text-sm text-gray-500">メンバーがいません</p>
-            ) : (
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-2 text-gray-600 font-medium">名前</th>
-                    <th className="text-right py-2"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selected.members.map((m) => (
-                    <tr key={m.id} className="border-b border-gray-100">
-                      <td className="py-2">{m.name}</td>
-                      <td className="py-2 text-right">
-                        <button
-                          onClick={() => handleRemoveMember(m.id)}
-                          className="text-xs text-red-600 hover:underline"
-                        >
-                          解除
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Create modal */}
       {showCreate && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">世帯を追加</h3>
-            {createError && <p className="text-red-600 text-sm mb-3">{createError}</p>}
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">世帯名 *</label>
+        <div className="modal">
+          <div className="modal-card">
+            <h3>世帯を追加</h3>
+            {createError && <p style={{ color: "var(--clr-danger)", fontSize: 13, marginBottom: 8 }}>{createError}</p>}
+            <div className="form-grid">
+              <label className="form-full">
+                世帯名 *
                 <input
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
                   value={createForm.name}
                   onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">郵便番号</label>
+              </label>
+              <label>
+                郵便番号
                 <input
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
                   value={createForm.postalCode}
                   onChange={(e) => setCreateForm((f) => ({ ...f, postalCode: e.target.value }))}
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">住所</label>
+              </label>
+              <label>
+                住所
                 <input
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
                   value={createForm.address}
                   onChange={(e) => setCreateForm((f) => ({ ...f, address: e.target.value }))}
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">電話番号</label>
+              </label>
+              <label>
+                電話番号
                 <input
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
                   value={createForm.phone}
                   onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
                 />
-              </div>
+              </label>
             </div>
-            <div className="flex justify-end gap-2 mt-4">
+            <div className="modal-actions">
               <button
+                className="ghost"
                 onClick={() => { setShowCreate(false); setCreateError(null); }}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded"
               >
                 キャンセル
               </button>
               <button
+                className="primary"
                 onClick={handleCreate}
                 disabled={!createForm.name}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
               >
                 作成
               </button>
@@ -364,36 +433,36 @@ function HouseholdsView({ token }: { token: string }) {
         </div>
       )}
 
-      {/* Add member modal */}
       {showAddMember && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">メンバーを追加</h3>
-            {memberError && <p className="text-red-600 text-sm mb-3">{memberError}</p>}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">個人顧客</label>
-              <select
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                value={addMemberCustomerId}
-                onChange={(e) => setAddMemberCustomerId(e.target.value)}
-              >
-                <option value="">-- 選択してください --</option>
-                {allIndividuals.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+        <div className="modal">
+          <div className="modal-card">
+            <h3>メンバーを追加</h3>
+            {memberError && <p style={{ color: "var(--clr-danger)", fontSize: 13, marginBottom: 8 }}>{memberError}</p>}
+            <div className="form-grid">
+              <label className="form-full">
+                個人顧客
+                <select
+                  value={addMemberCustomerId}
+                  onChange={(e) => setAddMemberCustomerId(e.target.value)}
+                >
+                  <option value="">-- 選択してください --</option>
+                  {allIndividuals.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </label>
             </div>
-            <div className="flex justify-end gap-2 mt-4">
+            <div className="modal-actions">
               <button
+                className="ghost"
                 onClick={() => { setShowAddMember(false); setMemberError(null); }}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded"
               >
                 キャンセル
               </button>
               <button
+                className="primary"
                 onClick={handleAddMember}
                 disabled={!addMemberCustomerId}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
               >
                 追加
               </button>
@@ -401,7 +470,7 @@ function HouseholdsView({ token }: { token: string }) {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -1800,9 +1869,7 @@ export default function App() {
           </main>
         )
       ) : view === "households" ? (
-        <main className="main-content" style={{ height: "100%" }}>
-          <HouseholdsView token={token} />
-        </main>
+        <HouseholdsView token={token} />
       ) : view === "dashboard" ? (
         <DashboardPage token={token} />
       ) : view === "users" && canSeeUsersTab ? (
