@@ -827,3 +827,30 @@ button:disabled {
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
 }
+
+.settings-subnav {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+
+.settings-subnav-item {
+  background: none;
+  border: none;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #666;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.settings-subnav-item.active {
+  color: var(--accent-2);
+  border-bottom-color: var(--accent-2);
+  font-weight: 600;
+}
+
+.settings-subnav-item:hover:not(.active) {
+  color: #333;
+}
