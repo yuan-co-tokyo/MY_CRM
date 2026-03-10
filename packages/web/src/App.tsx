@@ -533,60 +533,61 @@ function EmployeesTab({ customerId, token }: { customerId: string; token: string
   };
 
   return (
-    <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-700">従業員</h3>
-        <button
-          onClick={openAdd}
-          className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-        >
-          + 追加
+    <>
+      <div className="detail-sections">
+        <div className="detail-section">
+          <p className="eyebrow detail-section-title">従業員一覧</p>
+          {employees.length === 0 ? (
+            <p className="muted">従業員がいません</p>
+          ) : (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-2 text-gray-600 font-medium">名前</th>
+                  <th className="text-left py-2 text-gray-600 font-medium">メール</th>
+                  <th className="text-left py-2 text-gray-600 font-medium">役職</th>
+                  <th className="text-left py-2 text-gray-600 font-medium">部署</th>
+                  <th className="text-right py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {employees.map((emp) => (
+                  <tr key={emp.employmentId} className="border-b border-gray-100">
+                    <td className="py-2">{emp.customer.name}</td>
+                    <td className="py-2">{emp.customer.email ?? "ー"}</td>
+                    <td className="py-2">{emp.jobTitle ?? "ー"}</td>
+                    <td className="py-2">{emp.department ?? "ー"}</td>
+                    <td className="py-2 text-right">
+                      <button
+                        className="ghost"
+                        style={{ color: "var(--clr-danger)", fontSize: 12 }}
+                        onClick={() => handleRemove(emp.employmentId)}
+                      >
+                        解除
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+      <div className="detail-actions">
+        <button className="primary" onClick={openAdd}>
+          従業員を追加
         </button>
       </div>
-      {employees.length === 0 ? (
-        <p className="text-sm text-gray-500">従業員がいません</p>
-      ) : (
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="border-b border-gray-200">
-              <th className="text-left py-2 text-gray-600 font-medium">名前</th>
-              <th className="text-left py-2 text-gray-600 font-medium">メール</th>
-              <th className="text-left py-2 text-gray-600 font-medium">役職</th>
-              <th className="text-left py-2 text-gray-600 font-medium">部署</th>
-              <th className="text-right py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {employees.map((emp) => (
-              <tr key={emp.employmentId} className="border-b border-gray-100">
-                <td className="py-2">{emp.customer.name}</td>
-                <td className="py-2">{emp.customer.email ?? "ー"}</td>
-                <td className="py-2">{emp.jobTitle ?? "ー"}</td>
-                <td className="py-2">{emp.department ?? "ー"}</td>
-                <td className="py-2 text-right">
-                  <button
-                    onClick={() => handleRemove(emp.employmentId)}
-                    className="text-xs text-red-600 hover:underline"
-                  >
-                    解除
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
 
       {showAdd && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">従業員を追加</h3>
-            {addError && <p className="text-red-600 text-sm mb-3">{addError}</p>}
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">個人顧客 *</label>
+        <div className="modal">
+          <div className="modal-card">
+            <h3>従業員を追加</h3>
+            {addError && <p style={{ color: "var(--clr-danger)", fontSize: 13, marginBottom: 8 }}>{addError}</p>}
+            <div className="form-grid">
+              <label className="form-full">
+                個人顧客 *
                 <select
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
                   value={addForm.individualCustomerId}
                   onChange={(e) => setAddForm((f) => ({ ...f, individualCustomerId: e.target.value }))}
                 >
@@ -595,43 +596,34 @@ function EmployeesTab({ customerId, token }: { customerId: string; token: string
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">役職</label>
+              </label>
+              <label className="form-full">
+                役職
                 <input
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
                   value={addForm.jobTitle}
                   onChange={(e) => setAddForm((f) => ({ ...f, jobTitle: e.target.value }))}
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">部署</label>
+              </label>
+              <label className="form-full">
+                部署
                 <input
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
                   value={addForm.department}
                   onChange={(e) => setAddForm((f) => ({ ...f, department: e.target.value }))}
                 />
-              </div>
+              </label>
             </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                onClick={() => { setShowAdd(false); setAddError(null); }}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded"
-              >
+            <div className="modal-actions">
+              <button className="ghost" onClick={() => { setShowAdd(false); setAddError(null); }}>
                 キャンセル
               </button>
-              <button
-                onClick={handleAdd}
-                disabled={!addForm.individualCustomerId}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-              >
+              <button className="primary" onClick={handleAdd} disabled={!addForm.individualCustomerId}>
                 追加
               </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
