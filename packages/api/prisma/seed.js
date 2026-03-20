@@ -60,7 +60,13 @@ const PERMISSIONS = [
   { code: "household.read",   description: "Read households" },
   { code: "household.create", description: "Create households" },
   { code: "household.update", description: "Update households and members" },
-  { code: "household.delete", description: "Delete households" }
+  { code: "household.delete", description: "Delete households" },
+
+  // Insurance applications
+  { code: "application.read",   description: "Read insurance applications" },
+  { code: "application.create", description: "Create insurance applications" },
+  { code: "application.update", description: "Update insurance applications" },
+  { code: "application.delete", description: "Delete insurance applications" }
 ];
 
 const STANDARD_PERMISSION_CODES = new Set([
@@ -68,7 +74,9 @@ const STANDARD_PERMISSION_CODES = new Set([
   "customer.read",
   "interaction.read",
   "interaction.create",
-  "household.read"
+  "household.read",
+  "application.read",
+  "application.create"
 ]);
 
 async function main() {

@@ -11,6 +11,7 @@ import { RolesModule } from "./roles/roles.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { AdminModule } from "./admin/admin.module";
 import { HouseholdsModule } from "./households/households.module";
+import { ApplicationsModule } from "./applications/applications.module";
 
 @Module({
   imports: [
@@ -23,7 +24,8 @@ import { HouseholdsModule } from "./households/households.module";
     RolesModule,
     DashboardModule,
     AdminModule,
-    HouseholdsModule
+    HouseholdsModule,
+    ApplicationsModule
   ],
   controllers: [AppController],
   providers: [AppService]
