@@ -80,6 +80,23 @@ type InsuranceApplication = {
   updatedAt: string;
 };
 
+type InsuranceContract = {
+  id: string;
+  customerId: string;
+  customer?: { id: string; name: string; customerCategory: "INDIVIDUAL" | "CORPORATE" | null };
+  category: "LIFE" | "AUTO" | "FIRE" | "ACCIDENT" | "SPECIALTY" | "MARINE";
+  insuranceLine: { id: string; name: string } | null;
+  insuranceType: { id: string; name: string } | null;
+  insuranceCompany: { id: string; name: string } | null;
+  petName: string | null;
+  effectiveDate: string | null;
+  expirationDate: string | null;
+  applicationDate: string | null;
+  accountingDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type User = {
   id: string;
   email: string;
@@ -99,7 +116,7 @@ type Interaction = {
   createdAt: string;
 };
 
-type ViewKey = "permissions" | "individual-customers" | "corporate-customers" | "users" | "dashboard" | "households" | "applications-list";
+type ViewKey = "permissions" | "individual-customers" | "corporate-customers" | "users" | "dashboard" | "households" | "applications-list" | "contracts-list";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
 
@@ -1337,6 +1354,544 @@ function CorporateGroupTab({ customerId, token, allCorporates }: { customerId: s
   );
 }
 
+function ContractsListView({ token }: { token: string }) {
+  const [contracts, setContracts] = useState<InsuranceContract[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<InsuranceContract | null>(null);
+  const [form, setForm] = useState({
+    category: "LIFE" as InsuranceContract["category"],
+    petName: "",
+    effectiveDate: "",
+    expirationDate: "",
+    applicationDate: "",
+    accountingDate: ""
+  });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiFetch<InsuranceContract[]>("/contracts", token);
+      setContracts(data);
+    } catch (e: any) {
+      setError(e?.message ?? "不明なエラー");
+    }
+    setLoading(false);
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const formatDate = (d: string | null) => d ? d.slice(0, 10) : "—";
+
+  const selectedContract = contracts.find((c) => c.id === selectedId) ?? null;
+
+  const openEdit = (contract: InsuranceContract) => {
+    setEditTarget(contract);
+    setForm({
+      category: contract.category,
+      petName: contract.petName ?? "",
+      effectiveDate: contract.effectiveDate ? contract.effectiveDate.slice(0, 10) : "",
+      expirationDate: contract.expirationDate ? contract.expirationDate.slice(0, 10) : "",
+      applicationDate: contract.applicationDate ? contract.applicationDate.slice(0, 10) : "",
+      accountingDate: contract.accountingDate ? contract.accountingDate.slice(0, 10) : ""
+    });
+  };
+
+  const handleEdit = async () => {
+    if (!editTarget) return;
+    await apiFetch(`/contracts/${editTarget.id}`, token, {
+      method: "PATCH",
+      body: JSON.stringify({
+        category: form.category,
+        petName: form.petName || null,
+        effectiveDate: form.effectiveDate || null,
+        expirationDate: form.expirationDate || null,
+        applicationDate: form.applicationDate || null,
+        accountingDate: form.accountingDate || null
+      })
+    });
+    setEditTarget(null);
+    await load();
+  };
+
+  const handleDelete = async (id: string) => {
+    const contract = contracts.find((c) => c.id === id);
+    if (!contract?.customerId) return;
+    await apiFetch(`/customers/${contract.customerId}/contracts/${id}`, token, { method: "DELETE" });
+    setSelectedId(null);
+    await load();
+  };
+
+  if (selectedId && selectedContract) {
+    return (
+      <main className="main-content">
+        <section className="panel">
+          <div className="panel-header">
+            <button className="ghost" onClick={() => setSelectedId(null)}>← 契約一覧</button>
+            <h2 style={{ margin: "0 0 0 1rem", flex: 1 }}>
+              {selectedContract.petName || INSURANCE_CATEGORY_LABELS[selectedContract.category]}
+            </h2>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button className="ghost" onClick={() => openEdit(selectedContract)}>編集</button>
+              <button className="danger" onClick={() => handleDelete(selectedContract.id)}>削除</button>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", marginTop: "0.5rem" }}>
+            <div className="detail-sections">
+              <div className="detail-section">
+                <p className="eyebrow detail-section-title">契約情報</p>
+                <div className="detail-grid">
+                  <div>
+                    <span className="label">保険分類</span>
+                    <p><span className="chip">{INSURANCE_CATEGORY_LABELS[selectedContract.category]}</span></p>
+                  </div>
+                  <div>
+                    <span className="label">ペットネーム</span>
+                    <p>{selectedContract.petName ?? "—"}</p>
+                  </div>
+                  <div>
+                    <span className="label">保険種目</span>
+                    <p>{selectedContract.insuranceLine?.name ?? "—"}</p>
+                  </div>
+                  <div>
+                    <span className="label">保険種類</span>
+                    <p>{selectedContract.insuranceType?.name ?? "—"}</p>
+                  </div>
+                  <div>
+                    <span className="label">保険会社</span>
+                    <p>{selectedContract.insuranceCompany?.name ?? "—"}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="detail-sections">
+              <div className="detail-section">
+                <p className="eyebrow detail-section-title">顧客・日付情報</p>
+                <div className="detail-grid">
+                  <div>
+                    <span className="label">顧客名</span>
+                    <p>{selectedContract.customer?.name ?? "—"}</p>
+                  </div>
+                  <div>
+                    <span className="label">始期日</span>
+                    <p>{formatDate(selectedContract.effectiveDate)}</p>
+                  </div>
+                  <div>
+                    <span className="label">満期日</span>
+                    <p>{formatDate(selectedContract.expirationDate)}</p>
+                  </div>
+                  <div>
+                    <span className="label">申込日</span>
+                    <p>{formatDate(selectedContract.applicationDate)}</p>
+                  </div>
+                  <div>
+                    <span className="label">計上日</span>
+                    <p>{formatDate(selectedContract.accountingDate)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {editTarget && (
+          <div className="modal">
+            <div className="modal-card">
+              <h3>契約を編集</h3>
+              <div className="form-grid">
+                <label>
+                  <span>保険分類 *</span>
+                  <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as InsuranceContract["category"] })}>
+                    {Object.entries(INSURANCE_CATEGORY_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>ペットネーム</span>
+                  <input type="text" value={form.petName} onChange={(e) => setForm({ ...form, petName: e.target.value })} />
+                </label>
+                <label>
+                  <span>始期日</span>
+                  <input type="date" value={form.effectiveDate} onChange={(e) => setForm({ ...form, effectiveDate: e.target.value })} />
+                </label>
+                <label>
+                  <span>満期日</span>
+                  <input type="date" value={form.expirationDate} onChange={(e) => setForm({ ...form, expirationDate: e.target.value })} />
+                </label>
+                <label>
+                  <span>申込日</span>
+                  <input type="date" value={form.applicationDate} onChange={(e) => setForm({ ...form, applicationDate: e.target.value })} />
+                </label>
+                <label>
+                  <span>計上日</span>
+                  <input type="date" value={form.accountingDate} onChange={(e) => setForm({ ...form, accountingDate: e.target.value })} />
+                </label>
+              </div>
+              <div className="modal-actions">
+                <button className="ghost" onClick={() => setEditTarget(null)}>キャンセル</button>
+                <button className="primary" onClick={handleEdit}>保存</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    );
+  }
+
+  return (
+    <main className="main-content">
+      <section className="panel">
+        <div className="panel-header">
+          <h2>契約一覧</h2>
+          {!loading && <span className="chip">{contracts.length}</span>}
+        </div>
+        {loading ? (
+          <p className="muted">読み込み中...</p>
+        ) : error ? (
+          <p style={{ color: "red", fontSize: "0.875rem" }}>エラー: {error}</p>
+        ) : contracts.length === 0 ? (
+          <p className="muted">契約がありません</p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+            <thead>
+              <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600 }}>顧客名</th>
+                <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600 }}>保険分類</th>
+                <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600 }}>ペットネーム</th>
+                <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600 }}>保険会社</th>
+                <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600 }}>始期日</th>
+                <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600 }}>満期日</th>
+              </tr>
+            </thead>
+            <tbody>
+              {contracts.map((contract) => (
+                <tr
+                  key={contract.id}
+                  style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
+                  onClick={() => setSelectedId(contract.id)}
+                >
+                  <td style={{ padding: "0.5rem 0.75rem", color: "var(--accent-2)", fontWeight: 500 }}>{contract.customer?.name ?? "—"}</td>
+                  <td style={{ padding: "0.5rem 0.75rem" }}>
+                    <span className="chip">{INSURANCE_CATEGORY_LABELS[contract.category]}</span>
+                  </td>
+                  <td style={{ padding: "0.5rem 0.75rem" }}>{contract.petName ?? "—"}</td>
+                  <td style={{ padding: "0.5rem 0.75rem" }}>{contract.insuranceCompany?.name ?? "—"}</td>
+                  <td style={{ padding: "0.5rem 0.75rem" }}>{formatDate(contract.effectiveDate)}</td>
+                  <td style={{ padding: "0.5rem 0.75rem" }}>{formatDate(contract.expirationDate)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function ContractsTab({ customerId, token }: { customerId: string; token: string }) {
+  const [contracts, setContracts] = useState<InsuranceContract[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editTarget, setEditTarget] = useState<InsuranceContract | null>(null);
+  const [form, setForm] = useState({
+    category: "LIFE" as InsuranceContract["category"],
+    petName: "",
+    effectiveDate: "",
+    expirationDate: "",
+    applicationDate: "",
+    accountingDate: ""
+  });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const data = await apiFetch<InsuranceContract[]>(`/customers/${customerId}/contracts`, token);
+      setContracts(data);
+    } catch (e: any) {
+      setLoadError(e?.message ?? "不明なエラー");
+      setContracts([]);
+    }
+    setLoading(false);
+  }, [customerId, token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const resetForm = () => setForm({
+    category: "LIFE",
+    petName: "",
+    effectiveDate: "",
+    expirationDate: "",
+    applicationDate: "",
+    accountingDate: ""
+  });
+
+  const handleAdd = async () => {
+    await apiFetch(`/customers/${customerId}/contracts`, token, {
+      method: "POST",
+      body: JSON.stringify({
+        category: form.category,
+        petName: form.petName || null,
+        effectiveDate: form.effectiveDate || null,
+        expirationDate: form.expirationDate || null,
+        applicationDate: form.applicationDate || null,
+        accountingDate: form.accountingDate || null
+      })
+    });
+    setShowAdd(false);
+    resetForm();
+    load();
+  };
+
+  const handleEdit = async () => {
+    if (!editTarget) return;
+    await apiFetch(`/customers/${customerId}/contracts/${editTarget.id}`, token, {
+      method: "PATCH",
+      body: JSON.stringify({
+        category: form.category,
+        petName: form.petName || null,
+        effectiveDate: form.effectiveDate || null,
+        expirationDate: form.expirationDate || null,
+        applicationDate: form.applicationDate || null,
+        accountingDate: form.accountingDate || null
+      })
+    });
+    setEditTarget(null);
+    resetForm();
+    await load();
+  };
+
+  const handleDelete = async (id: string) => {
+    await apiFetch(`/customers/${customerId}/contracts/${id}`, token, { method: "DELETE" });
+    setSelectedId(null);
+    load();
+  };
+
+  const openEdit = (contract: InsuranceContract) => {
+    setEditTarget(contract);
+    setForm({
+      category: contract.category,
+      petName: contract.petName ?? "",
+      effectiveDate: contract.effectiveDate ? contract.effectiveDate.slice(0, 10) : "",
+      expirationDate: contract.expirationDate ? contract.expirationDate.slice(0, 10) : "",
+      applicationDate: contract.applicationDate ? contract.applicationDate.slice(0, 10) : "",
+      accountingDate: contract.accountingDate ? contract.accountingDate.slice(0, 10) : ""
+    });
+  };
+
+  const formatDate = (d: string | null) => d ? d.slice(0, 10) : "—";
+
+  const selectedContract = contracts.find((c) => c.id === selectedId) ?? null;
+
+  if (selectedId && selectedContract) {
+    return (
+      <>
+        <div className="detail-sections">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+            <button className="ghost" style={{ padding: "0.25rem 0.5rem", fontSize: "0.8125rem" }} onClick={() => setSelectedId(null)}>← 一覧へ戻る</button>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button className="ghost" onClick={() => openEdit(selectedContract)}>編集</button>
+              <button className="danger" onClick={() => handleDelete(selectedContract.id)}>削除</button>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
+            <div className="detail-section">
+              <p className="eyebrow detail-section-title">契約情報</p>
+              <div className="detail-grid">
+                <div>
+                  <span className="label">保険分類</span>
+                  <p><span className="chip">{INSURANCE_CATEGORY_LABELS[selectedContract.category]}</span></p>
+                </div>
+                <div>
+                  <span className="label">ペットネーム</span>
+                  <p>{selectedContract.petName ?? "—"}</p>
+                </div>
+                <div>
+                  <span className="label">保険種目</span>
+                  <p>{selectedContract.insuranceLine?.name ?? "—"}</p>
+                </div>
+                <div>
+                  <span className="label">保険種類</span>
+                  <p>{selectedContract.insuranceType?.name ?? "—"}</p>
+                </div>
+                <div>
+                  <span className="label">保険会社</span>
+                  <p>{selectedContract.insuranceCompany?.name ?? "—"}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="detail-section">
+              <p className="eyebrow detail-section-title">日付情報</p>
+              <div className="detail-grid">
+                <div>
+                  <span className="label">始期日</span>
+                  <p>{formatDate(selectedContract.effectiveDate)}</p>
+                </div>
+                <div>
+                  <span className="label">満期日</span>
+                  <p>{formatDate(selectedContract.expirationDate)}</p>
+                </div>
+                <div>
+                  <span className="label">申込日</span>
+                  <p>{formatDate(selectedContract.applicationDate)}</p>
+                </div>
+                <div>
+                  <span className="label">計上日</span>
+                  <p>{formatDate(selectedContract.accountingDate)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {editTarget && (
+          <div className="modal">
+            <div className="modal-card">
+              <h3>契約を編集</h3>
+              <div className="form-grid">
+                <label>
+                  <span>保険分類 *</span>
+                  <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as InsuranceContract["category"] })}>
+                    {Object.entries(INSURANCE_CATEGORY_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>ペットネーム</span>
+                  <input type="text" value={form.petName} onChange={(e) => setForm({ ...form, petName: e.target.value })} />
+                </label>
+                <label>
+                  <span>始期日</span>
+                  <input type="date" value={form.effectiveDate} onChange={(e) => setForm({ ...form, effectiveDate: e.target.value })} />
+                </label>
+                <label>
+                  <span>満期日</span>
+                  <input type="date" value={form.expirationDate} onChange={(e) => setForm({ ...form, expirationDate: e.target.value })} />
+                </label>
+                <label>
+                  <span>申込日</span>
+                  <input type="date" value={form.applicationDate} onChange={(e) => setForm({ ...form, applicationDate: e.target.value })} />
+                </label>
+                <label>
+                  <span>計上日</span>
+                  <input type="date" value={form.accountingDate} onChange={(e) => setForm({ ...form, accountingDate: e.target.value })} />
+                </label>
+              </div>
+              <div className="modal-actions">
+                <button className="ghost" onClick={() => { setEditTarget(null); resetForm(); }}>キャンセル</button>
+                <button className="primary" onClick={handleEdit}>保存</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="detail-sections">
+        <div className="detail-section">
+          <p className="eyebrow detail-section-title">契約一覧</p>
+          {loading ? (
+            <p className="muted">読み込み中...</p>
+          ) : loadError ? (
+            <p style={{ color: "red", fontSize: "0.875rem" }}>エラー: {loadError}</p>
+          ) : contracts.length === 0 ? (
+            <p className="muted">契約がありません</p>
+          ) : (
+            <div className="detail-grid">
+              {contracts.map((contract) => (
+                <div
+                  key={contract.id}
+                  style={{ gridColumn: "1 / -1", borderBottom: "1px solid var(--border)", paddingBottom: "0.75rem", marginBottom: "0.75rem", cursor: "pointer" }}
+                  onClick={() => setSelectedId(contract.id)}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <span className="chip">{INSURANCE_CATEGORY_LABELS[contract.category]}</span>
+                      {contract.petName && <span style={{ marginLeft: "0.5rem", fontWeight: 600 }}>{contract.petName}</span>}
+                      {contract.insuranceLine && <span style={{ marginLeft: "0.5rem", color: "#666" }}>{contract.insuranceLine.name}</span>}
+                      {contract.insuranceType && <span style={{ marginLeft: "0.5rem", color: "#666" }}>{contract.insuranceType.name}</span>}
+                    </div>
+                    <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>›</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.5rem", marginTop: "0.5rem", fontSize: "0.8125rem" }}>
+                    <div><span className="label">始期日</span> {formatDate(contract.effectiveDate)}</div>
+                    <div><span className="label">満期日</span> {formatDate(contract.expirationDate)}</div>
+                    <div><span className="label">申込日</span> {formatDate(contract.applicationDate)}</div>
+                    <div><span className="label">計上日</span> {formatDate(contract.accountingDate)}</div>
+                  </div>
+                  {contract.insuranceCompany && (
+                    <div style={{ marginTop: "0.25rem", fontSize: "0.8125rem" }}>
+                      <span className="label">保険会社</span> {contract.insuranceCompany.name}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="detail-actions">
+        <button className="primary" onClick={() => { resetForm(); setShowAdd(true); }}>契約を追加</button>
+      </div>
+
+      {showAdd && (
+        <div className="modal">
+          <div className="modal-card">
+            <h3>契約を追加</h3>
+            <div className="form-grid">
+              <label>
+                <span>保険分類 *</span>
+                <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as InsuranceContract["category"] })}>
+                  {Object.entries(INSURANCE_CATEGORY_LABELS).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>ペットネーム</span>
+                <input type="text" value={form.petName} onChange={(e) => setForm({ ...form, petName: e.target.value })} />
+              </label>
+              <label>
+                <span>始期日</span>
+                <input type="date" value={form.effectiveDate} onChange={(e) => setForm({ ...form, effectiveDate: e.target.value })} />
+              </label>
+              <label>
+                <span>満期日</span>
+                <input type="date" value={form.expirationDate} onChange={(e) => setForm({ ...form, expirationDate: e.target.value })} />
+              </label>
+              <label>
+                <span>申込日</span>
+                <input type="date" value={form.applicationDate} onChange={(e) => setForm({ ...form, applicationDate: e.target.value })} />
+              </label>
+              <label>
+                <span>計上日</span>
+                <input type="date" value={form.accountingDate} onChange={(e) => setForm({ ...form, accountingDate: e.target.value })} />
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button className="ghost" onClick={() => { setShowAdd(false); resetForm(); }}>キャンセル</button>
+              <button className="primary" onClick={handleAdd}>追加</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem("crm_token") || "");
   const [loginEmail, setLoginEmail] = useState(() => localStorage.getItem("crm_email") || "");
@@ -1359,8 +1914,8 @@ export default function App() {
   const [customerQuery, setCustomerQuery] = useState("");
   const [customerStatusFilter, setCustomerStatusFilter] = useState<string>("ALL");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [customerDetailView, setCustomerDetailView] = useState<"info" | "interactions" | "employees" | "group" | "applications">("info");
-  const initialDetailViewRef = useRef<"info" | "interactions" | "employees" | "group" | "applications" | null>(null);
+  const [customerDetailView, setCustomerDetailView] = useState<"info" | "interactions" | "employees" | "group" | "applications" | "contracts">("info");
+  const initialDetailViewRef = useRef<"info" | "interactions" | "employees" | "group" | "applications" | "contracts" | null>(null);
   const [customerForm, setCustomerForm] = useState({ ...emptyCustomer });
   const [customerFormMode, setCustomerFormMode] = useState<"create" | "edit">("create");
   const [customerFormOpen, setCustomerFormOpen] = useState(false);
@@ -1399,6 +1954,7 @@ export default function App() {
   const [canSeePermissionsTab, setCanSeePermissionsTab] = useState(false);
   const [canSeeUsersTab, setCanSeeUsersTab] = useState(false);
   const [canSeeApplicationsList, setCanSeeApplicationsList] = useState(false);
+  const [canSeeContractsList, setCanSeeContractsList] = useState(false);
   const canSeeSettings = canSeePermissionsTab || canSeeUsersTab;
   const [permissionCheckDone, setPermissionCheckDone] = useState(false);
 
@@ -1532,9 +2088,11 @@ export default function App() {
       const permissionsAccess = await canAccessPermission("role.read");
       const usersAccess = await canAccessPermission("user.read");
       const applicationsAccess = await canAccessPermission("application.read");
+      const contractsAccess = await canAccessPermission("contract.read");
       setCanSeePermissionsTab(permissionsAccess);
       setCanSeeUsersTab(usersAccess);
       setCanSeeApplicationsList(applicationsAccess);
+      setCanSeeContractsList(contractsAccess);
       setPermissionCheckDone(true);
     })();
   }, [token]);
@@ -1938,6 +2496,14 @@ export default function App() {
                 申込一覧
               </button>
             )}
+            {canSeeContractsList && (
+              <button
+                className={`sidebar-item ${view === "contracts-list" ? "active" : ""}`}
+                onClick={() => setView("contracts-list")}
+              >
+                契約一覧
+              </button>
+            )}
             {canSeeSettings && (
               <button
                 className={`sidebar-item ${view === "permissions" || view === "users" ? "active" : ""}`}
@@ -2177,6 +2743,12 @@ export default function App() {
                       onClick={() => setCustomerDetailView("applications")}
                     >
                       申込
+                    </button>
+                    <button
+                      className={`sidebar-item${customerDetailView === "contracts" ? " active" : ""}`}
+                      onClick={() => setCustomerDetailView("contracts")}
+                    >
+                      契約
                     </button>
                   </nav>
 
@@ -2446,6 +3018,9 @@ export default function App() {
                     {customerDetailView === "applications" && (
                       <ApplicationsTab customerId={selectedCustomer.id} token={token} />
                     )}
+                    {customerDetailView === "contracts" && (
+                      <ContractsTab customerId={selectedCustomer.id} token={token} />
+                    )}
                   </div>
                 </div>
               )}
@@ -2456,6 +3031,8 @@ export default function App() {
         <HouseholdsView token={token} />
       ) : view === "applications-list" && canSeeApplicationsList ? (
         <ApplicationsListView token={token} />
+      ) : view === "contracts-list" && canSeeContractsList ? (
+        <ContractsListView token={token} />
       ) : view === "dashboard" ? (
         <DashboardPage token={token} />
       ) : view === "users" && canSeeUsersTab ? (

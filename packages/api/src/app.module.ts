@@ -12,6 +12,7 @@ import { DashboardModule } from "./dashboard/dashboard.module";
 import { AdminModule } from "./admin/admin.module";
 import { HouseholdsModule } from "./households/households.module";
 import { ApplicationsModule } from "./applications/applications.module";
+import { ContractsModule } from "./contracts/contracts.module";
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { ApplicationsModule } from "./applications/applications.module";
     DashboardModule,
     AdminModule,
     HouseholdsModule,
-    ApplicationsModule
+    ApplicationsModule,
+    ContractsModule
   ],
   controllers: [AppController],
   providers: [AppService]
