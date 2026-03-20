@@ -45,6 +45,15 @@ enum InteractionType {
   NOTE
 }
 
+enum InsuranceCategory {
+  LIFE
+  AUTO
+  FIRE
+  ACCIDENT
+  SPECIALTY
+  MARINE
+}
+
 model Tenant {
   id           String        @id @default(cuid())
   name         String
@@ -58,6 +67,7 @@ model Tenant {
   interactions Interaction[]
   roles        Role[]
   households   Household[]
+  insuranceApplications InsuranceApplication[]
 }
 
 model User {
@@ -135,6 +145,7 @@ model Customer {
   householdMembership HouseholdMembership?
   employerRelations   CustomerEmployment[] @relation("EmployerRelation")
   employeeRelations   CustomerEmployment[] @relation("EmployeeRelation")
+  insuranceApplications InsuranceApplication[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -308,4 +319,49 @@ model RefreshToken {
   user       User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
+}
+
+model InsuranceLine {
+  id           String               @id @default(cuid())
+  name         String               @unique
+  applications InsuranceApplication[]
+}
+
+model InsuranceType {
+  id           String               @id @default(cuid())
+  name         String               @unique
+  applications InsuranceApplication[]
+}
+
+model InsuranceCompany {
+  id           String               @id @default(cuid())
+  name         String               @unique
+  applications InsuranceApplication[]
+}
+
+model InsuranceApplication {
+  id                 String            @id @default(cuid())
+  tenantId           String
+  customerId         String
+  category           InsuranceCategory
+  insuranceLineId    String?
+  insuranceTypeId    String?
+  insuranceCompanyId String?
+  petName            String?
+  effectiveDate      DateTime?
+  expirationDate     DateTime?
+  applicationDate    DateTime?
+  accountingDate     DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  deletedAt          DateTime?
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  customer         Customer          @relation(fields: [customerId], references: [id])
+  insuranceLine    InsuranceLine?    @relation(fields: [insuranceLineId], references: [id])
+  insuranceType    InsuranceType?    @relation(fields: [insuranceTypeId], references: [id])
+  insuranceCompany InsuranceCompany? @relation(fields: [insuranceCompanyId], references: [id])
+
+  @@index([tenantId])
+  @@index([customerId])
 }
