@@ -13,6 +13,8 @@ import { AdminModule } from "./admin/admin.module";
 import { HouseholdsModule } from "./households/households.module";
 import { ApplicationsModule } from "./applications/applications.module";
 import { ContractsModule } from "./contracts/contracts.module";
+import { TasksModule } from "./tasks/tasks.module";
+import { EventsModule } from "./events/events.module";
 
 @Module({
   imports: [
@@ -27,7 +29,9 @@ import { ContractsModule } from "./contracts/contracts.module";
     AdminModule,
     HouseholdsModule,
     ApplicationsModule,
-    ContractsModule
+    ContractsModule,
+    TasksModule,
+    EventsModule
   ],
   controllers: [AppController],
   providers: [AppService]

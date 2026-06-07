@@ -72,7 +72,19 @@ const PERMISSIONS = [
   { code: "contract.read",   description: "Read insurance contracts" },
   { code: "contract.create", description: "Create insurance contracts" },
   { code: "contract.update", description: "Update insurance contracts" },
-  { code: "contract.delete", description: "Delete insurance contracts" }
+  { code: "contract.delete", description: "Delete insurance contracts" },
+
+  // Tasks
+  { code: "task.read",   description: "Read tasks" },
+  { code: "task.create", description: "Create tasks" },
+  { code: "task.update", description: "Update tasks" },
+  { code: "task.delete", description: "Delete tasks" },
+
+  // Events
+  { code: "event.read",   description: "Read events" },
+  { code: "event.create", description: "Create events" },
+  { code: "event.update", description: "Update events" },
+  { code: "event.delete", description: "Delete events" }
 ];
 
 const STANDARD_PERMISSION_CODES = new Set([
@@ -84,7 +96,13 @@ const STANDARD_PERMISSION_CODES = new Set([
   "application.read",
   "application.create",
   "contract.read",
-  "contract.create"
+  "contract.create",
+  "task.read",
+  "task.create",
+  "task.update",
+  "event.read",
+  "event.create",
+  "event.update"
 ]);
 
 async function main() {

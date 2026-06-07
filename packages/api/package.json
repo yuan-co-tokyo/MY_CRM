@@ -6,6 +6,7 @@
     "dev": "node --watch -r ts-node/register -r tsconfig-paths/register src/main.ts",
     "start": "node dist/main.js",
     "build": "tsc -p tsconfig.json",
+    "test": "jest",
     "prisma:generate": "prisma generate",
     "prisma:seed": "prisma db seed",
     "migrate:dev": "prisma migrate dev",
@@ -33,11 +34,15 @@
   },
   "devDependencies": {
     "@nestjs/testing": "^11.1.14",
+    "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
     "@types/ms": "^2.1.0",
     "@types/node": "^25.2.1",
     "@types/passport": "^1.0.17",
     "@types/passport-jwt": "^4.0.1",
+    "jest": "^30.4.2",
     "prisma": "^5.19.1",
+    "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.3"

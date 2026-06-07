@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./style.css";
 import LoginPage from "./LoginPage";
 import DashboardPage from "./DashboardPage";
+import TasksPage from "./TasksPage";
+import SchedulePage from "./SchedulePage";
+import TodoPanel from "./TodoPanel";
+import EventPanel from "./EventPanel";
 
 type Permission = {
   id: string;
@@ -116,7 +120,7 @@ type Interaction = {
   createdAt: string;
 };
 
-type ViewKey = "permissions" | "individual-customers" | "corporate-customers" | "users" | "dashboard" | "households" | "applications-list" | "contracts-list";
+type ViewKey = "permissions" | "individual-customers" | "corporate-customers" | "users" | "dashboard" | "households" | "applications-list" | "contracts-list" | "tasks" | "schedule";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
 
@@ -142,7 +146,7 @@ const emptyCustomer = {
   name: "",
   email: "",
   phone: "",
-  status: "LEAD" as const,
+  status: "LEAD" as "LEAD" | "ACTIVE" | "INACTIVE",
   ownerUserId: "",
   assigneeUserIds: [] as string[],
   customerCategory: "" as "" | "INDIVIDUAL" | "CORPORATE",
@@ -1914,8 +1918,8 @@ export default function App() {
   const [customerQuery, setCustomerQuery] = useState("");
   const [customerStatusFilter, setCustomerStatusFilter] = useState<string>("ALL");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [customerDetailView, setCustomerDetailView] = useState<"info" | "interactions" | "employees" | "group" | "applications" | "contracts">("info");
-  const initialDetailViewRef = useRef<"info" | "interactions" | "employees" | "group" | "applications" | "contracts" | null>(null);
+  const [customerDetailView, setCustomerDetailView] = useState<"info" | "interactions" | "employees" | "group" | "applications" | "contracts" | "todos" | "events">("info");
+  const initialDetailViewRef = useRef<"info" | "interactions" | "employees" | "group" | "applications" | "contracts" | "todos" | "events" | null>(null);
   const [customerForm, setCustomerForm] = useState({ ...emptyCustomer });
   const [customerFormMode, setCustomerFormMode] = useState<"create" | "edit">("create");
   const [customerFormOpen, setCustomerFormOpen] = useState(false);
@@ -1935,8 +1939,8 @@ export default function App() {
     name: "",
     email: "",
     password: "",
-    status: "ACTIVE" as const,
-    userType: "STANDARD" as const,
+    status: "ACTIVE" as "ACTIVE" | "SUSPENDED",
+    userType: "STANDARD" as "ADMIN" | "STANDARD" | "PRIVILEGED",
     roleIds: [] as string[]
   });
   const [userQuery, setUserQuery] = useState("");
@@ -2504,6 +2508,18 @@ export default function App() {
                 契約一覧
               </button>
             )}
+            <button
+              className={`sidebar-item ${view === "tasks" ? "active" : ""}`}
+              onClick={() => setView("tasks")}
+            >
+              TODO
+            </button>
+            <button
+              className={`sidebar-item ${view === "schedule" ? "active" : ""}`}
+              onClick={() => setView("schedule")}
+            >
+              スケジュール
+            </button>
             {canSeeSettings && (
               <button
                 className={`sidebar-item ${view === "permissions" || view === "users" ? "active" : ""}`}
@@ -2531,7 +2547,7 @@ export default function App() {
               <button className={`settings-subnav-item ${view === "permissions" ? "active" : ""}`} onClick={() => setView("permissions")}>権限管理</button>
             )}
             {canSeeUsersTab && (
-              <button className={`settings-subnav-item ${view === "users" ? "active" : ""}`} onClick={() => setView("users")}>ユーザー</button>
+              <button className={`settings-subnav-item ${(view as ViewKey) === "users" ? "active" : ""}`} onClick={() => setView("users")}>ユーザー</button>
             )}
           </div>
           <section className="panel role-list">
@@ -2749,6 +2765,18 @@ export default function App() {
                       onClick={() => setCustomerDetailView("contracts")}
                     >
                       契約
+                    </button>
+                    <button
+                      className={`sidebar-item${customerDetailView === "todos" ? " active" : ""}`}
+                      onClick={() => setCustomerDetailView("todos")}
+                    >
+                      TODO
+                    </button>
+                    <button
+                      className={`sidebar-item${customerDetailView === "events" ? " active" : ""}`}
+                      onClick={() => setCustomerDetailView("events")}
+                    >
+                      予定
                     </button>
                   </nav>
 
@@ -3021,6 +3049,12 @@ export default function App() {
                     {customerDetailView === "contracts" && (
                       <ContractsTab customerId={selectedCustomer.id} token={token} />
                     )}
+                    {customerDetailView === "todos" && (
+                      <TodoPanel customerId={selectedCustomer.id} token={token} />
+                    )}
+                    {customerDetailView === "events" && (
+                      <EventPanel customerId={selectedCustomer.id} token={token} />
+                    )}
                   </div>
                 </div>
               )}
@@ -3035,11 +3069,15 @@ export default function App() {
         <ContractsListView token={token} />
       ) : view === "dashboard" ? (
         <DashboardPage token={token} />
+      ) : view === "tasks" ? (
+        <TasksPage token={token} />
+      ) : view === "schedule" ? (
+        <SchedulePage token={token} />
       ) : view === "users" && canSeeUsersTab ? (
         <main className="layout users">
           <div className="settings-subnav">
             {canSeePermissionsTab && (
-              <button className={`settings-subnav-item ${view === "permissions" ? "active" : ""}`} onClick={() => setView("permissions")}>権限管理</button>
+              <button className={`settings-subnav-item ${(view as ViewKey) === "permissions" ? "active" : ""}`} onClick={() => setView("permissions")}>権限管理</button>
             )}
             {canSeeUsersTab && (
               <button className={`settings-subnav-item ${view === "users" ? "active" : ""}`} onClick={() => setView("users")}>ユーザー</button>
@@ -3357,7 +3395,7 @@ export default function App() {
                   onChange={(event) =>
                     setUserForm((prev) => ({
                       ...prev,
-                      status: event.target.value as User["status"]
+                      status: event.target.value as "ACTIVE" | "SUSPENDED"
                     }))
                   }
                 >
@@ -3372,7 +3410,7 @@ export default function App() {
                   onChange={(event) =>
                     setUserForm((prev) => ({
                       ...prev,
-                      userType: event.target.value as User["userType"]
+                      userType: event.target.value as "ADMIN" | "STANDARD" | "PRIVILEGED"
                     }))
                   }
                 >
