@@ -130,10 +130,13 @@ export class EventsService {
     });
     if (!event) throw new NotFoundException("Event not found");
 
-    await this.prisma.event.update({
-      where: { id },
-      data: { deletedAt: new Date() }
+    const removed = await this.prisma.event.update({
+      where: { id: event.id },
+      data: { deletedAt: new Date() },
+      include: EVENT_INCLUDE
     });
+
+    return this.toResponse(removed);
   }
 
   private toResponse(event: any) {

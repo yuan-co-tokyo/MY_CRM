@@ -34,6 +34,8 @@ type Task = {
   updatedAt: string;
 };
 
+type Customer = { id: string; name: string };
+
 type ScopeFilter = "mine" | "all";
 type DueFilter = "all" | "today" | "overdue";
 type StatusTab = "open" | "done";
@@ -62,7 +64,8 @@ export default function TasksPage({ token }: Props) {
     description: "",
     dueDate: "",
     priority: "" as "" | "LOW" | "MEDIUM" | "HIGH",
-    assigneeId: ""
+    assigneeId: "",
+    customerId: ""
   });
   const [editForm, setEditForm] = useState({
     title: "",
@@ -70,9 +73,11 @@ export default function TasksPage({ token }: Props) {
     dueDate: "",
     priority: "" as "" | "LOW" | "MEDIUM" | "HIGH",
     assigneeId: "",
+    customerId: "",
     status: "OPEN" as "OPEN" | "DONE" | "CANCELLED"
   });
   const [formError, setFormError] = useState<string | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -97,6 +102,10 @@ export default function TasksPage({ token }: Props) {
   }, [token, scopeFilter, dueFilter]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    apiFetch<Customer[]>("/customers", token).then(setCustomers).catch(() => {});
+  }, [token]);
 
   const handleComplete = async (task: Task) => {
     const reopen = task.status === "DONE";
@@ -129,11 +138,12 @@ export default function TasksPage({ token }: Props) {
           description: addForm.description || undefined,
           dueDate: addForm.dueDate ? new Date(addForm.dueDate).toISOString() : undefined,
           priority: addForm.priority || undefined,
-          assigneeId: addForm.assigneeId || undefined
+          assigneeId: addForm.assigneeId || undefined,
+          customerId: addForm.customerId || undefined
         })
       });
       setShowAddModal(false);
-      setAddForm({ title: "", description: "", dueDate: "", priority: "", assigneeId: "" });
+      setAddForm({ title: "", description: "", dueDate: "", priority: "", assigneeId: "", customerId: "" });
       await load();
     } catch (e: unknown) {
       setFormError(e instanceof Error ? e.message : "作成に失敗しました");
@@ -148,6 +158,7 @@ export default function TasksPage({ token }: Props) {
       dueDate: task.dueDate ? task.dueDate.slice(0, 16) : "",
       priority: task.priority ?? "",
       assigneeId: task.assigneeId ?? "",
+      customerId: task.customerId ?? "",
       status: task.status
     });
     setFormError(null);
@@ -165,6 +176,7 @@ export default function TasksPage({ token }: Props) {
           dueDate: editForm.dueDate ? new Date(editForm.dueDate).toISOString() : undefined,
           priority: editForm.priority || undefined,
           assigneeId: editForm.assigneeId || undefined,
+          customerId: editForm.customerId || undefined,
           status: editForm.status
         })
       });
@@ -366,11 +378,23 @@ export default function TasksPage({ token }: Props) {
                   <option value="HIGH">高</option>
                 </select>
               </label>
+              <label className="form-full">
+                顧客
+                <select
+                  value={addForm.customerId}
+                  onChange={(e) => setAddForm((f) => ({ ...f, customerId: e.target.value }))}
+                >
+                  <option value="">顧客なし</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </label>
             </div>
             <div className="modal-actions">
               <button
                 className="ghost"
-                onClick={() => { setShowAddModal(false); setAddForm({ title: "", description: "", dueDate: "", priority: "", assigneeId: "" }); }}
+                onClick={() => { setShowAddModal(false); setAddForm({ title: "", description: "", dueDate: "", priority: "", assigneeId: "", customerId: "" }); }}
               >
                 キャンセル
               </button>
@@ -433,6 +457,18 @@ export default function TasksPage({ token }: Props) {
                   <option value="OPEN">未完了</option>
                   <option value="DONE">完了</option>
                   <option value="CANCELLED">キャンセル</option>
+                </select>
+              </label>
+              <label className="form-full">
+                顧客
+                <select
+                  value={editForm.customerId}
+                  onChange={(e) => setEditForm((f) => ({ ...f, customerId: e.target.value }))}
+                >
+                  <option value="">顧客なし</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
                 </select>
               </label>
             </div>
