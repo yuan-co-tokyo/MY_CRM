@@ -54,6 +54,23 @@ enum InsuranceCategory {
   MARINE
 }
 
+enum ContractStatus {
+  ACTIVE
+  RENEWED
+  EXPIRED
+  CANCELLED
+}
+
+enum ApplicationStatus {
+  DRAFT
+  PROPOSED
+  SUBMITTED
+  APPROVED
+  CONVERTED
+  REJECTED
+  WITHDRAWN
+}
+
 model Tenant {
   id        String    @id @default(cuid())
   name      String
@@ -354,36 +371,42 @@ model InsuranceCompany {
 }
 
 model InsuranceApplication {
-  id                 String            @id @default(cuid())
-  tenantId           String
-  customerId         String
-  category           InsuranceCategory
-  insuranceLineId    String?
-  insuranceTypeId    String?
-  insuranceCompanyId String?
-  petName            String?
-  effectiveDate      DateTime?
-  expirationDate     DateTime?
-  applicationDate    DateTime?
-  accountingDate     DateTime?
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  deletedAt          DateTime?
+  id                      String            @id @default(cuid())
+  tenantId                String
+  customerId              String
+  status                  ApplicationStatus @default(DRAFT)
+  category                InsuranceCategory
+  insuranceLineId         String?
+  insuranceTypeId         String?
+  insuranceCompanyId      String?
+  renewalSourceContractId String?
+  petName                 String?
+  effectiveDate           DateTime?
+  expirationDate          DateTime?
+  applicationDate         DateTime?
+  accountingDate          DateTime?
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  deletedAt               DateTime?
 
-  tenant           Tenant            @relation(fields: [tenantId], references: [id])
-  customer         Customer          @relation(fields: [customerId], references: [id])
-  insuranceLine    InsuranceLine?    @relation(fields: [insuranceLineId], references: [id])
-  insuranceType    InsuranceType?    @relation(fields: [insuranceTypeId], references: [id])
-  insuranceCompany InsuranceCompany? @relation(fields: [insuranceCompanyId], references: [id])
+  tenant                Tenant             @relation(fields: [tenantId], references: [id])
+  customer              Customer           @relation(fields: [customerId], references: [id])
+  insuranceLine         InsuranceLine?     @relation(fields: [insuranceLineId], references: [id])
+  insuranceType         InsuranceType?     @relation(fields: [insuranceTypeId], references: [id])
+  insuranceCompany      InsuranceCompany?  @relation(fields: [insuranceCompanyId], references: [id])
+  renewalSourceContract InsuranceContract? @relation("RenewalSourceApplications", fields: [renewalSourceContractId], references: [id])
 
   @@index([tenantId])
   @@index([customerId])
+  @@index([renewalSourceContractId])
 }
 
 model InsuranceContract {
   id                 String            @id @default(cuid())
   tenantId           String
   customerId         String
+  status             ContractStatus    @default(ACTIVE)
+  previousContractId String?
   category           InsuranceCategory
   insuranceLineId    String?
   insuranceTypeId    String?
@@ -397,14 +420,18 @@ model InsuranceContract {
   updatedAt          DateTime          @updatedAt
   deletedAt          DateTime?
 
-  tenant           Tenant            @relation(fields: [tenantId], references: [id])
-  customer         Customer          @relation(fields: [customerId], references: [id])
-  insuranceLine    InsuranceLine?    @relation(fields: [insuranceLineId], references: [id])
-  insuranceType    InsuranceType?    @relation(fields: [insuranceTypeId], references: [id])
-  insuranceCompany InsuranceCompany? @relation(fields: [insuranceCompanyId], references: [id])
+  tenant             Tenant                 @relation(fields: [tenantId], references: [id])
+  customer           Customer               @relation(fields: [customerId], references: [id])
+  insuranceLine      InsuranceLine?         @relation(fields: [insuranceLineId], references: [id])
+  insuranceType      InsuranceType?         @relation(fields: [insuranceTypeId], references: [id])
+  insuranceCompany   InsuranceCompany?      @relation(fields: [insuranceCompanyId], references: [id])
+  previousContract   InsuranceContract?     @relation("ContractRenewal", fields: [previousContractId], references: [id])
+  renewedContracts   InsuranceContract[]    @relation("ContractRenewal")
+  sourceApplications InsuranceApplication[] @relation("RenewalSourceApplications")
 
   @@index([tenantId])
   @@index([customerId])
+  @@index([previousContractId])
 }
 
 enum TaskStatus {

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import type { InsuranceCategory } from "@prisma/client";
@@ -14,6 +14,12 @@ const CONTRACT_INCLUDE_WITH_CUSTOMER = {
   customer: { select: { id: true, name: true, customerCategory: true } }
 };
 
+const APPLICATION_INCLUDE = {
+  insuranceLine: { select: { id: true, name: true } },
+  insuranceType: { select: { id: true, name: true } },
+  insuranceCompany: { select: { id: true, name: true } }
+};
+
 @Injectable()
 export class ContractsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -23,6 +29,25 @@ export class ContractsService {
       where: { tenantId: user.tenantId, deletedAt: null },
       include: CONTRACT_INCLUDE_WITH_CUSTOMER,
       orderBy: { createdAt: "desc" }
+    });
+    return contracts.map((c) => this.toResponseWithCustomer(c));
+  }
+
+  async findRenewals(user: JwtPayload, withinDays: number) {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const expiresBy = new Date(today);
+    expiresBy.setUTCDate(expiresBy.getUTCDate() + withinDays);
+
+    const contracts = await this.prisma.insuranceContract.findMany({
+      where: {
+        tenantId: user.tenantId,
+        status: "ACTIVE",
+        expirationDate: { not: null, lte: expiresBy },
+        deletedAt: null
+      },
+      include: CONTRACT_INCLUDE_WITH_CUSTOMER,
+      orderBy: { expirationDate: "asc" }
     });
     return contracts.map((c) => this.toResponseWithCustomer(c));
   }
@@ -127,6 +152,32 @@ export class ContractsService {
     return this.toResponse(updated);
   }
 
+  async startRenewal(user: JwtPayload, contractId: string) {
+    const contract = await this.prisma.insuranceContract.findFirst({
+      where: { id: contractId, tenantId: user.tenantId, deletedAt: null }
+    });
+    if (!contract) throw new NotFoundException("Contract not found");
+    if (contract.status !== "ACTIVE") throw new BadRequestException("Contract is not renewable");
+
+    const application = await this.prisma.insuranceApplication.create({
+      data: {
+        tenantId: contract.tenantId,
+        customerId: contract.customerId,
+        status: "DRAFT",
+        category: contract.category,
+        insuranceLineId: contract.insuranceLineId,
+        insuranceTypeId: contract.insuranceTypeId,
+        insuranceCompanyId: contract.insuranceCompanyId,
+        renewalSourceContractId: contractId,
+        petName: contract.petName,
+        effectiveDate: contract.effectiveDate,
+        expirationDate: contract.expirationDate
+      },
+      include: APPLICATION_INCLUDE
+    });
+    return this.toApplicationResponse(application);
+  }
+
   async remove(user: JwtPayload, id: string) {
     const contract = await this.prisma.insuranceContract.findFirst({
       where: { id, tenantId: user.tenantId, deletedAt: null }
@@ -144,6 +195,7 @@ export class ContractsService {
       id: contract.id,
       tenantId: contract.tenantId,
       customerId: contract.customerId,
+      status: contract.status,
       category: contract.category,
       insuranceLine: contract.insuranceLine,
       insuranceType: contract.insuranceType,
@@ -162,6 +214,27 @@ export class ContractsService {
     return {
       ...this.toResponse(contract),
       customer: contract.customer
+    };
+  }
+
+  private toApplicationResponse(application: any) {
+    return {
+      id: application.id,
+      tenantId: application.tenantId,
+      customerId: application.customerId,
+      status: application.status,
+      category: application.category,
+      insuranceLine: application.insuranceLine,
+      insuranceType: application.insuranceType,
+      insuranceCompany: application.insuranceCompany,
+      renewalSourceContractId: application.renewalSourceContractId,
+      petName: application.petName,
+      effectiveDate: application.effectiveDate,
+      expirationDate: application.expirationDate,
+      applicationDate: application.applicationDate,
+      accountingDate: application.accountingDate,
+      createdAt: application.createdAt,
+      updatedAt: application.updatedAt
     };
   }
 }

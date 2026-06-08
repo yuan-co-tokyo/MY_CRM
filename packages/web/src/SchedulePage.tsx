@@ -24,6 +24,8 @@ async function apiFetch<T>(path: string, token: string, init?: RequestInit): Pro
   return res.json();
 }
 
+type Customer = { id: string; name: string };
+
 type CrmEvent = {
   id: string;
   title: string;
@@ -33,6 +35,7 @@ type CrmEvent = {
   location?: string | null;
   type?: "MEETING" | "CALL" | "OTHER" | null;
   customerId?: string | null;
+  customer?: { id: string; name: string } | null;
   ownerId?: string | null;
 };
 
@@ -72,6 +75,7 @@ type Props = {
 export default function SchedulePage({ token }: Props) {
   const calendarRef = useRef<InstanceType<typeof FullCalendar>>(null);
   const [events, setEvents] = useState<CrmEvent[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [error, setError] = useState("");
 
   const [detailEvent, setDetailEvent] = useState<CrmEvent | null>(null);
@@ -106,6 +110,10 @@ export default function SchedulePage({ token }: Props) {
     const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
     fetchEvents(from, to);
   }, [fetchEvents]);
+
+  useEffect(() => {
+    apiFetch<Customer[]>("/customers", token).then(setCustomers).catch(() => {});
+  }, [token]);
 
   const handleDatesSet = useCallback(
     (arg: { start: Date; end: Date }) => {
@@ -239,7 +247,7 @@ export default function SchedulePage({ token }: Props) {
 
   const calendarEvents = events.map((ev) => ({
     id: ev.id,
-    title: ev.title,
+    title: ev.customer?.name ? `${ev.title} (${ev.customer.name})` : ev.title,
     start: ev.startAt,
     end: ev.endAt
   }));
@@ -308,6 +316,12 @@ export default function SchedulePage({ token }: Props) {
                 <span className="label">終了</span>
                 {new Date(detailEvent.endAt).toLocaleString("ja-JP")}
               </div>
+              {detailEvent.customer && (
+                <div>
+                  <span className="label">顧客</span>
+                  {detailEvent.customer.name}
+                </div>
+              )}
               {detailEvent.location && (
                 <div>
                   <span className="label">場所</span>
@@ -392,6 +406,18 @@ export default function SchedulePage({ token }: Props) {
                   rows={3}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 />
+              </label>
+              <label className="form-full">
+                顧客
+                <select
+                  value={form.customerId}
+                  onChange={(e) => setForm((f) => ({ ...f, customerId: e.target.value }))}
+                >
+                  <option value="">顧客なし</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
               </label>
             </div>
             <div className="modal-actions">
