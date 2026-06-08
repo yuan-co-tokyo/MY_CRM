@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -8,6 +8,7 @@ import type { AuthenticatedRequest } from "../auth/auth.types";
 import { ApplicationsService } from "./applications.service";
 
 const INSURANCE_CATEGORIES = ["LIFE", "AUTO", "FIRE", "ACCIDENT", "SPECIALTY", "MARINE"] as const;
+const APPLICATION_STATUSES = ["DRAFT", "PROPOSED", "SUBMITTED", "APPROVED", "CONVERTED", "REJECTED", "WITHDRAWN"] as const;
 
 const createApplicationSchema = z.object({
   category: z.enum(INSURANCE_CATEGORIES),
@@ -22,6 +23,12 @@ const createApplicationSchema = z.object({
 });
 
 const updateApplicationSchema = createApplicationSchema.partial();
+const listApplicationQuerySchema = z.object({
+  status: z.enum(APPLICATION_STATUSES).optional()
+});
+const updateApplicationStatusSchema = z.object({
+  status: z.enum(APPLICATION_STATUSES)
+});
 
 @Controller("applications")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -30,8 +37,11 @@ export class ApplicationsListController {
 
   @Get()
   @RequirePermissions("application.read")
-  async listAll(@Req() req: AuthenticatedRequest) {
-    return this.applicationsService.listAll(req.user);
+  async listAll(
+    @Req() req: AuthenticatedRequest,
+    @Query(new ZodValidationPipe(listApplicationQuerySchema)) query: z.infer<typeof listApplicationQuerySchema>
+  ) {
+    return this.applicationsService.listAll(req.user, query);
   }
 
   @Get(":id")
@@ -48,6 +58,22 @@ export class ApplicationsListController {
     @Body(new ZodValidationPipe(updateApplicationSchema)) body: z.infer<typeof updateApplicationSchema>
   ) {
     return this.applicationsService.update(req.user, id, body);
+  }
+
+  @Patch(":id/status")
+  @RequirePermissions("application.update")
+  async updateStatus(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(updateApplicationStatusSchema)) body: z.infer<typeof updateApplicationStatusSchema>
+  ) {
+    return this.applicationsService.updateStatus(req.user, id, body.status);
+  }
+
+  @Post(":id/convert")
+  @RequirePermissions("application.update")
+  async convert(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    return this.applicationsService.convert(req.user, id);
   }
 }
 
