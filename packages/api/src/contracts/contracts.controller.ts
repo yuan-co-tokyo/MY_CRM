@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -23,6 +23,10 @@ const createContractSchema = z.object({
 
 const updateContractSchema = createContractSchema.partial();
 
+const renewalsQuerySchema = z.object({
+  withinDays: z.coerce.number().int().min(0).default(30)
+});
+
 @Controller("contracts")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ContractsListController {
@@ -32,6 +36,21 @@ export class ContractsListController {
   @RequirePermissions("contract.read")
   async listAll(@Req() req: AuthenticatedRequest) {
     return this.contractsService.listAll(req.user);
+  }
+
+  @Get("renewals")
+  @RequirePermissions("contract.read")
+  async findRenewals(
+    @Req() req: AuthenticatedRequest,
+    @Query(new ZodValidationPipe(renewalsQuerySchema)) query: z.infer<typeof renewalsQuerySchema>
+  ) {
+    return this.contractsService.findRenewals(req.user, query.withinDays);
+  }
+
+  @Post(":id/start-renewal")
+  @RequirePermissions("application.create")
+  async startRenewal(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    return this.contractsService.startRenewal(req.user, id);
   }
 
   @Get(":id")

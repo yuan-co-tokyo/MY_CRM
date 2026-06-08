@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
-import type { InsuranceCategory } from "@prisma/client";
+import type { ApplicationStatus, InsuranceCategory } from "@prisma/client";
 
 const APPLICATION_INCLUDE = {
   insuranceLine: { select: { id: true, name: true } },
@@ -14,13 +14,29 @@ const APPLICATION_INCLUDE_WITH_CUSTOMER = {
   customer: { select: { id: true, name: true, customerCategory: true } }
 };
 
+const CONTRACT_INCLUDE = {
+  insuranceLine: { select: { id: true, name: true } },
+  insuranceType: { select: { id: true, name: true } },
+  insuranceCompany: { select: { id: true, name: true } }
+};
+
+const ALLOWED_STATUS_TRANSITIONS: Record<ApplicationStatus, ApplicationStatus[]> = {
+  DRAFT: ["PROPOSED", "REJECTED", "WITHDRAWN"],
+  PROPOSED: ["SUBMITTED", "REJECTED", "WITHDRAWN"],
+  SUBMITTED: ["APPROVED", "REJECTED", "WITHDRAWN"],
+  APPROVED: ["REJECTED", "WITHDRAWN"],
+  CONVERTED: [],
+  REJECTED: [],
+  WITHDRAWN: []
+};
+
 @Injectable()
 export class ApplicationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listAll(user: JwtPayload) {
+  async listAll(user: JwtPayload, query: { status?: ApplicationStatus } = {}) {
     const applications = await this.prisma.insuranceApplication.findMany({
-      where: { tenantId: user.tenantId, deletedAt: null },
+      where: { tenantId: user.tenantId, deletedAt: null, ...(query.status ? { status: query.status } : {}) },
       include: APPLICATION_INCLUDE_WITH_CUSTOMER,
       orderBy: { createdAt: "desc" }
     });
@@ -128,6 +144,66 @@ export class ApplicationsService {
     return this.toResponse(updated);
   }
 
+  async updateStatus(user: JwtPayload, id: string, newStatus: ApplicationStatus) {
+    const application = await this.prisma.insuranceApplication.findFirst({
+      where: { id, tenantId: user.tenantId, deletedAt: null }
+    });
+    if (!application) throw new NotFoundException("Application not found");
+
+    const allowedNextStatuses = ALLOWED_STATUS_TRANSITIONS[application.status];
+    if (!allowedNextStatuses.includes(newStatus)) {
+      throw new BadRequestException(`Cannot transition application from ${application.status} to ${newStatus}`);
+    }
+
+    const updated = await this.prisma.insuranceApplication.update({
+      where: { id },
+      data: { status: newStatus },
+      include: APPLICATION_INCLUDE
+    });
+    return this.toResponse(updated);
+  }
+
+  async convert(user: JwtPayload, id: string) {
+    const application = await this.prisma.insuranceApplication.findFirst({
+      where: { id, tenantId: user.tenantId, deletedAt: null }
+    });
+    if (!application) throw new NotFoundException("Application not found");
+    if (application.status !== "APPROVED") {
+      throw new BadRequestException("Only APPROVED applications can be converted");
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.insuranceApplication.update({
+        where: { id },
+        data: { status: "CONVERTED" }
+      });
+
+      if (application.renewalSourceContractId) {
+        await tx.insuranceContract.update({
+          where: { id: application.renewalSourceContractId },
+          data: { status: "RENEWED" }
+        });
+      }
+
+      return tx.insuranceContract.create({
+        data: {
+          tenantId: application.tenantId,
+          customerId: application.customerId,
+          category: application.category,
+          insuranceLineId: application.insuranceLineId,
+          insuranceTypeId: application.insuranceTypeId,
+          insuranceCompanyId: application.insuranceCompanyId,
+          petName: application.petName,
+          effectiveDate: application.effectiveDate,
+          expirationDate: application.expirationDate,
+          status: "ACTIVE",
+          previousContractId: application.renewalSourceContractId
+        },
+        include: CONTRACT_INCLUDE
+      });
+    });
+  }
+
   async remove(user: JwtPayload, id: string) {
     const application = await this.prisma.insuranceApplication.findFirst({
       where: { id, tenantId: user.tenantId, deletedAt: null }
@@ -145,10 +221,12 @@ export class ApplicationsService {
       id: application.id,
       tenantId: application.tenantId,
       customerId: application.customerId,
+      status: application.status,
       category: application.category,
       insuranceLine: application.insuranceLine,
       insuranceType: application.insuranceType,
       insuranceCompany: application.insuranceCompany,
+      renewalSourceContractId: application.renewalSourceContractId,
       petName: application.petName,
       effectiveDate: application.effectiveDate,
       expirationDate: application.expirationDate,
