@@ -15,6 +15,8 @@ import { ApplicationsModule } from "./applications/applications.module";
 import { ContractsModule } from "./contracts/contracts.module";
 import { TasksModule } from "./tasks/tasks.module";
 import { EventsModule } from "./events/events.module";
+import { ApiKeysModule } from "./api-keys/api-keys.module";
+import { PublicApiModule } from "./public-api/public-api.module";
 
 @Module({
   imports: [
@@ -31,7 +33,9 @@ import { EventsModule } from "./events/events.module";
     ApplicationsModule,
     ContractsModule,
     TasksModule,
-    EventsModule
+    EventsModule,
+    ApiKeysModule,
+    PublicApiModule
   ],
   controllers: [AppController],
   providers: [AppService]
