@@ -120,7 +120,19 @@ type Interaction = {
   createdAt: string;
 };
 
-type ViewKey = "permissions" | "individual-customers" | "corporate-customers" | "users" | "dashboard" | "households" | "applications-list" | "contracts-list" | "tasks" | "schedule";
+type ApiKey = {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  createdBy: string;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+  isActive: boolean;
+};
+
+type ViewKey = "permissions" | "individual-customers" | "corporate-customers" | "users" | "dashboard" | "households" | "applications-list" | "contracts-list" | "tasks" | "schedule" | "api-keys";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
 
@@ -1947,6 +1959,11 @@ export default function App() {
   const [userStatusFilter, setUserStatusFilter] = useState<string>("ALL");
   const [userTypeFilter, setUserTypeFilter] = useState<string>("ALL");
 
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [newApiKeyPlain, setNewApiKeyPlain] = useState<string | null>(null);
+  const [newApiKeyName, setNewApiKeyName] = useState('');
+  const [apiKeyLoading, setApiKeyLoading] = useState(false);
+
   useEffect(() => {
     localStorage.setItem("crm_token", token);
   }, [token]);
@@ -1990,6 +2007,9 @@ export default function App() {
     }
     if (view === "users") {
       void loadUsers();
+    }
+    if (view === "api-keys") {
+      void fetchApiKeys();
     }
   }, [token, view]);
 
@@ -2075,6 +2095,35 @@ export default function App() {
     } catch (err: any) {
       setError(err.message || "Failed to load users");
     }
+  }
+
+  async function fetchApiKeys() {
+    if (!token) return;
+    try {
+      const data = await apiFetch<ApiKey[]>("/api-keys", token);
+      setApiKeys(data);
+    } catch { /* ignore */ }
+  }
+
+  async function issueApiKey() {
+    if (!newApiKeyName.trim()) return;
+    setApiKeyLoading(true);
+    try {
+      const data = await apiFetch<ApiKey & { plainKey: string }>("/api-keys", token, {
+        method: "POST",
+        body: JSON.stringify({ name: newApiKeyName })
+      });
+      setNewApiKeyPlain(data.plainKey);
+      setNewApiKeyName('');
+      void fetchApiKeys();
+    } finally {
+      setApiKeyLoading(false);
+    }
+  }
+
+  async function revokeApiKey(id: string) {
+    await apiFetch(`/api-keys/${id}/revoke`, token, { method: "PATCH" });
+    void fetchApiKeys();
   }
 
   async function canAccessPermission(code: string) {
@@ -2522,7 +2571,7 @@ export default function App() {
             </button>
             {canSeeSettings && (
               <button
-                className={`sidebar-item ${view === "permissions" || view === "users" ? "active" : ""}`}
+                className={`sidebar-item ${view === "permissions" || view === "users" || view === "api-keys" ? "active" : ""}`}
                 onClick={() => setView(canSeePermissionsTab ? "permissions" : "users")}
               >
                 設定
@@ -2549,6 +2598,7 @@ export default function App() {
             {canSeeUsersTab && (
               <button className={`settings-subnav-item ${(view as ViewKey) === "users" ? "active" : ""}`} onClick={() => setView("users")}>ユーザー</button>
             )}
+            <button className={`settings-subnav-item ${(view as ViewKey) === "api-keys" ? "active" : ""}`} onClick={() => setView("api-keys")}>APIキー管理</button>
           </div>
           <section className="panel role-list">
             <div className="panel-header">
@@ -3082,6 +3132,7 @@ export default function App() {
             {canSeeUsersTab && (
               <button className={`settings-subnav-item ${view === "users" ? "active" : ""}`} onClick={() => setView("users")}>ユーザー</button>
             )}
+            <button className={`settings-subnav-item ${(view as ViewKey) === "api-keys" ? "active" : ""}`} onClick={() => setView("api-keys")}>APIキー管理</button>
           </div>
           <section className="panel user-list">
             <div className="panel-header">
@@ -3141,6 +3192,104 @@ export default function App() {
             <button className="primary" onClick={openCreateUser}>
               Open form
             </button>
+          </section>
+        </main>
+      ) : view === "api-keys" ? (
+        <main className="layout">
+          <div className="settings-subnav">
+            {canSeePermissionsTab && (
+              <button className={`settings-subnav-item ${(view as ViewKey) === "permissions" ? "active" : ""}`} onClick={() => setView("permissions")}>権限管理</button>
+            )}
+            {canSeeUsersTab && (
+              <button className={`settings-subnav-item ${(view as ViewKey) === "users" ? "active" : ""}`} onClick={() => setView("users")}>ユーザー</button>
+            )}
+            <button className={`settings-subnav-item ${view === "api-keys" ? "active" : ""}`} onClick={() => setView("api-keys")}>APIキー管理</button>
+          </div>
+          <section className="panel">
+            <div className="panel-header">
+              <h2>APIキー管理</h2>
+            </div>
+            <div style={{ marginBottom: "1rem" }}>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <input
+                  value={newApiKeyName}
+                  onChange={(e) => setNewApiKeyName(e.target.value)}
+                  placeholder="キー名を入力"
+                  style={{ flex: 1 }}
+                />
+                <button
+                  className="primary"
+                  onClick={() => void issueApiKey()}
+                  disabled={apiKeyLoading || !newApiKeyName.trim()}
+                >
+                  {apiKeyLoading ? "発行中..." : "発行"}
+                </button>
+              </div>
+              {newApiKeyPlain && (
+                <div style={{ marginTop: "0.75rem", padding: "0.75rem", background: "#fef9c3", borderRadius: "6px", border: "1px solid #fde047" }}>
+                  <p style={{ marginBottom: "0.5rem", fontWeight: 600, color: "#854d0e" }}>
+                    このキーは一度しか表示されません。必ずコピーしてください。
+                  </p>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    <code style={{ flex: 1, wordBreak: "break-all", fontSize: "0.85rem" }}>{newApiKeyPlain}</code>
+                    <button
+                      className="ghost"
+                      onClick={() => void navigator.clipboard.writeText(newApiKeyPlain)}
+                    >
+                      コピー
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--border, #e5e7eb)", textAlign: "left" }}>
+                  <th style={{ padding: "0.5rem" }}>名前</th>
+                  <th style={{ padding: "0.5rem" }}>プレフィックス</th>
+                  <th style={{ padding: "0.5rem" }}>作成日</th>
+                  <th style={{ padding: "0.5rem" }}>最終使用日</th>
+                  <th style={{ padding: "0.5rem" }}>状態</th>
+                  <th style={{ padding: "0.5rem" }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {apiKeys.map((key) => (
+                  <tr
+                    key={key.id}
+                    style={{
+                      borderBottom: "1px solid var(--border, #e5e7eb)",
+                      opacity: key.isActive ? 1 : 0.45
+                    }}
+                  >
+                    <td style={{ padding: "0.5rem" }}>{key.name}</td>
+                    <td style={{ padding: "0.5rem" }}><code>{key.keyPrefix}…</code></td>
+                    <td style={{ padding: "0.5rem" }}>{new Date(key.createdAt).toLocaleDateString("ja-JP")}</td>
+                    <td style={{ padding: "0.5rem" }}>{key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleDateString("ja-JP") : "―"}</td>
+                    <td style={{ padding: "0.5rem" }}>
+                      <span className={`chip ${key.isActive ? "" : "muted"}`}>{key.isActive ? "有効" : "失効"}</span>
+                    </td>
+                    <td style={{ padding: "0.5rem" }}>
+                      {key.isActive && (
+                        <button
+                          className="ghost"
+                          onClick={() => void revokeApiKey(key.id)}
+                        >
+                          無効化
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {apiKeys.length === 0 && (
+                  <tr>
+                    <td colSpan={6} style={{ padding: "1rem", textAlign: "center", color: "var(--muted, #6b7280)" }}>
+                      APIキーがありません
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </section>
         </main>
       ) : null}
